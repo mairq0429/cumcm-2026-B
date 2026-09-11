@@ -35,6 +35,9 @@ SPEED_MPS = 5.0
 MEASURE_TIME_S = 5.0
 OFFICIAL_CLEAR_RADIUS_M = 20.0
 OPERATIONAL_CLEAR_RADIUS_M = 17.0
+# Provisional numerical target used only while the model team has not frozen
+# eps_rec.  It is deliberately independent of every Q1 geometry tolerance.
+DEVELOPMENT_EPS_REC_M = 1.0e-3
 
 
 @dataclass(frozen=True)
@@ -42,7 +45,7 @@ class Q2Config:
     circle_sides: int = 1440
     omega_move: Optional[Sequence[Point]] = None
     lmin_m: float = 50.0
-    eps_rec_m: float = DEFAULT_TOLERANCES.eps_geo
+    eps_rec_m: Optional[float] = None
     error_step_deg: float = 0.1
     source_step_m: float = 20.0
     candidate_steps_m: tuple[float, ...] = (50.0, 20.0, 5.0)
@@ -53,10 +56,12 @@ class Q2Config:
     def __post_init__(self) -> None:
         if self.circle_sides < 12:
             raise ValueError("circle_sides must be at least 12")
-        if self.lmin_m < 0 or self.eps_rec_m < 0:
-            raise ValueError("lmin_m and eps_rec_m must be nonnegative")
+        if self.lmin_m < 0 or (self.eps_rec_m is not None and self.eps_rec_m < 0):
+            raise ValueError("lmin_m and configured eps_rec_m must be nonnegative")
         if self.error_step_deg <= 0 or self.source_step_m <= 0:
             raise ValueError("sampling steps must be positive")
+        if self.certificate_max_depth < 0 or self.certificate_max_cells < 0:
+            raise ValueError("certificate limits must be nonnegative")
 
 
 @dataclass(frozen=True)
@@ -79,7 +84,7 @@ class WorstScenario:
 @dataclass
 class CandidateResult:
     S2: Point
-    strict_receive: bool
+    strict_receive: Optional[bool]
     certificate: dict
     T2: float
     JD: Optional[float]
@@ -256,6 +261,12 @@ def receive_violation(S2: Sequence[float], G: Sequence[float], S1: Sequence[floa
     return _distance(_point(G, "G"), _point(S2, "S2")) - receive_floor(G, S1)
 
 
+def _certificate_epsilon(config: Q2Config) -> tuple[float, str]:
+    if config.eps_rec_m is None:
+        return DEVELOPMENT_EPS_REC_M, "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED"
+    return config.eps_rec_m, "CONFIGURED_PARAMETER / NOT_MODEL_VERIFIED"
+
+
 def _point_segment_distance(p: Point, a: Point, b: Point) -> float:
     dx, dy = b[0] - a[0], b[1] - a[1]
     denom = dx * dx + dy * dy
@@ -308,15 +319,18 @@ def certified_strict(
     """
 
     cfg = config or Q2Config()
+    eps_rec, eps_rec_source = _certificate_epsilon(cfg)
     s1, s2 = _point(S1, "S1"), _point(S2, "S2")
     polygon = list(P1_bound["P1_out"] if isinstance(P1_bound, Mapping) else P1_bound)
     if _distance(s1, s2) <= cfg.tolerances.eps_geo:
         return {
+            "status": "CERTIFIED_STRICT",
             "strict_receive": True,
             "certified": True,
             "method": "analytic_identity_plus_physical_domain",
             "upper_bound_m": 0.0,
-            "eps_rec_m": cfg.eps_rec_m,
+            "eps_rec_m": eps_rec,
+            "eps_rec_source": eps_rec_source,
             "cells_examined": 0,
             "boundary_uncertainty_m": 0.0,
             "counterexample": None,
@@ -335,8 +349,10 @@ def certified_strict(
         examined += 1
         if examined > cfg.certificate_max_cells:
             return {
-                "strict_receive": False, "certified": False, "method": "triangle_cell_2_lipschitz",
-                "upper_bound_m": None, "eps_rec_m": cfg.eps_rec_m,
+                "status": "UNRESOLVED",
+                "strict_receive": None, "certified": False, "method": "triangle_cell_2_lipschitz",
+                "upper_bound_m": None, "eps_rec_m": eps_rec,
+                "eps_rec_source": eps_rec_source,
                 "cells_examined": examined, "boundary_uncertainty_m": None,
                 "counterexample": None, "reason": "certificate_cell_budget_exhausted",
             }
@@ -351,21 +367,25 @@ def certified_strict(
         upper = receive_violation(s2, center, s1) + 2.0 * h
         samples = list(clipped) + [center]
         for point in samples:
-            if physical_filter(point, s1) and receive_violation(s2, point, s1) > cfg.eps_rec_m:
+            if physical_filter(point, s1) and receive_violation(s2, point, s1) > eps_rec:
                 return {
+                    "status": "CERTIFIED_VIOLATION",
                     "strict_receive": False, "certified": True, "method": "triangle_cell_2_lipschitz",
-                    "upper_bound_m": upper, "eps_rec_m": cfg.eps_rec_m,
+                    "upper_bound_m": upper, "eps_rec_m": eps_rec,
+                    "eps_rec_source": eps_rec_source,
                     "cells_examined": examined, "boundary_uncertainty_m": h,
                     "counterexample": point, "reason": "physical_counterexample",
                 }
-        if upper <= cfg.eps_rec_m:
+        if upper <= eps_rec:
             certified_leaf_upper = max(certified_leaf_upper, upper)
             certified_leaf_h = max(certified_leaf_h, h)
             continue
         if depth >= cfg.certificate_max_depth:
             return {
-                "strict_receive": False, "certified": False, "method": "triangle_cell_2_lipschitz",
-                "upper_bound_m": upper, "eps_rec_m": cfg.eps_rec_m,
+                "status": "UNRESOLVED",
+                "strict_receive": None, "certified": False, "method": "triangle_cell_2_lipschitz",
+                "upper_bound_m": upper, "eps_rec_m": eps_rec,
+                "eps_rec_source": eps_rec_source,
                 "cells_examined": examined, "boundary_uncertainty_m": h,
                 "counterexample": None, "reason": "max_depth_with_active_physical_cell",
             }
@@ -373,11 +393,13 @@ def certified_strict(
         queue.append((first, depth + 1))
         queue.append((second, depth + 1))
     return {
+        "status": "CERTIFIED_STRICT",
         "strict_receive": True,
         "certified": True,
         "method": "triangle_cell_2_lipschitz",
         "upper_bound_m": certified_leaf_upper if math.isfinite(certified_leaf_upper) else None,
-        "eps_rec_m": cfg.eps_rec_m,
+        "eps_rec_m": eps_rec,
+        "eps_rec_source": eps_rec_source,
         "cells_examined": examined,
         "boundary_uncertainty_m": certified_leaf_h,
         "counterexample": None,
@@ -484,7 +506,7 @@ def evaluate_candidate(
     JD, JR, JA = (worst[name].value if name in worst else None for name in ("JD", "JR", "JA"))
     return CandidateResult(
         S2=s2,
-        strict_receive=bool(certificate["strict_receive"]),
+        strict_receive=certificate["strict_receive"],
         certificate=certificate,
         T2=_distance(s1, s2) / SPEED_MPS,
         JD=JD,
@@ -508,13 +530,13 @@ def _dominates(a: CandidateResult, b: CandidateResult, epsD: float, epsR: float,
 
 
 def pareto_front(candidates: Iterable[CandidateResult], epsD: float = 0.0, epsR: float = 0.0, epsT: float = 0.0) -> list[CandidateResult]:
-    valid = [c for c in candidates if c.strict_receive and c.JD is not None and c.JR is not None]
+    valid = [c for c in candidates if c.strict_receive is True and c.JD is not None and c.JR is not None]
     return [c for c in valid if not any(_dominates(other, c, epsD, epsR, epsT) for other in valid if other is not c)]
 
 
 def select_best(candidates: Iterable[CandidateResult], config: Optional[Q2Config] = None) -> Optional[CandidateResult]:
     cfg = config or Q2Config()
-    strict = [c for c in candidates if c.strict_receive and _distance(c.S2, (0.0, 0.0)) < math.inf and c.T2 * SPEED_MPS + cfg.tolerances.eps_geo >= cfg.lmin_m]
+    strict = [c for c in candidates if c.certificate.get("status") == "CERTIFIED_STRICT" and c.strict_receive is True and _distance(c.S2, (0.0, 0.0)) < math.inf and c.T2 * SPEED_MPS + cfg.tolerances.eps_geo >= cfg.lmin_m]
     c20 = [c for c in strict if c.official20 and c.JR is not None and c.JD is not None]
     if c20:
         return min(c20, key=lambda c: (c.T2, c.JR, c.JD, c.S2[0], c.S2[1]))
@@ -556,6 +578,8 @@ def solve_q2(S1: Sequence[float], theta1_hat_deg: float, config: Optional[Q2Conf
             "pending": ["M4", "M5", "M6"],
             "geometry_dependency": "Q1-localization-v1 VERIFIED",
             "continuous_strict_certificate": "triangle-cell 2-Lipschitz branch-and-bound",
+            "eps_rec_m": _certificate_epsilon(cfg)[0],
+            "eps_rec_source": _certificate_epsilon(cfg)[1],
             "worst_value_wording": "场景加密后的收敛数值最坏值",
         },
     ).to_dict()

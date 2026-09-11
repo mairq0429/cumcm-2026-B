@@ -32,14 +32,16 @@ class TestQ2V21M1ToM3(unittest.TestCase):
 
     def test_T01_S1_is_strict_without_lmin(self):
         certificate = certified_strict(self.S1, self.P1, self.S1, self.config)
+        self.assertEqual(certificate["status"], "CERTIFIED_STRICT")
         self.assertTrue(certificate["certified"])
-        self.assertTrue(certificate["strict_receive"])
+        self.assertIs(certificate["strict_receive"], True)
         self.assertNotEqual(certificate["method"], "sample_all")
         shifted = certified_strict((-900.0, 0.0), self.P1, self.S1, self.config)
         self.assertTrue(shifted["certified"])
-        self.assertTrue(shifted["strict_receive"])
+        self.assertEqual(shifted["status"], "CERTIFIED_STRICT")
+        self.assertIs(shifted["strict_receive"], True)
         self.assertEqual(shifted["method"], "triangle_cell_2_lipschitz")
-        self.assertLessEqual(shifted["upper_bound_m"], self.config.eps_rec_m)
+        self.assertLessEqual(shifted["upper_bound_m"], shifted["eps_rec_m"])
 
     def test_T02_true_source_is_in_P1_out(self):
         self.assertTrue(point_in_convex_region(
@@ -113,6 +115,29 @@ class TestQ2V21M1ToM3(unittest.TestCase):
         self.assertEqual(wrap_pi(0.0), 0.0)
         self.assertEqual(wrap_pi(2.0 * math.pi), 0.0)
         self.assertAlmostEqual(wrap_pi(math.pi), -math.pi)
+
+
+class TestStrictCertificateImplementationSemantics(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.S1 = (-1000.0, 0.0)
+        cls.P1 = build_P1_bound(cls.S1, 0.0, Q2Config())
+
+    def test_budget_exhaustion_is_unresolved(self):
+        config = Q2Config(certificate_max_cells=0)
+        certificate = certified_strict((-900.0, 0.0), self.P1, self.S1, config)
+        self.assertEqual(certificate["status"], "UNRESOLVED")
+        self.assertFalse(certificate["certified"])
+        self.assertIsNone(certificate["strict_receive"])
+        self.assertEqual(certificate["reason"], "certificate_cell_budget_exhausted")
+
+    def test_physical_counterexample_is_certified_violation(self):
+        certificate = certified_strict((-3000.0, 0.0), self.P1, self.S1, Q2Config())
+        self.assertEqual(certificate["status"], "CERTIFIED_VIOLATION")
+        self.assertTrue(certificate["certified"])
+        self.assertIs(certificate["strict_receive"], False)
+        self.assertIsNotNone(certificate["counterexample"])
+        self.assertTrue(physical_filter(certificate["counterexample"], self.S1))
 
 
 if __name__ == "__main__":

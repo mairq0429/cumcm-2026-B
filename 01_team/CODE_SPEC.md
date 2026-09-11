@@ -34,7 +34,9 @@
 - 公开构件：Q2Config、SourceScenario、CandidateResult、WorstScenario、Q2Result、bearing、wrap_pi、build_P1_bound、physical_filter、receive_floor、receive_violation、certified_strict、make_P2、fim_order_score、evaluate_candidate、pareto_front、select_best、validate_solution。
 - 输入输出：输入第一次检测点/示向及配置；M1--M3 已输出 P1 外/内近似、物理过滤、连续域严格接收证书和单场景 P2 的 status/area/diameter/MEC/一致性诊断。M4--M6 的完整嵌套搜索、收敛、敏感性与正式文件输出尚未实现。
 - 依赖：Q1-localization-v1 VERIFIED；直接复用 `DEFAULT_TOLERANCES`、wedge/circle/clip/clean/classify/diameter/MEC/area/point-membership 公共实现。Q2 默认圆分辨率 1440，不改变 Q1 默认 720。
-- 数值证书：默认 `eps_rec=Q1 DEFAULT_TOLERANCES.eps_geo=1.8e-6 m`，不是另行定义的 Q2 几何容差；三角单元使用 2-Lipschitz 上界。
+- 接收半径语义：实际物理量是固定但未知的 `rho∈[1000,1500]`；第一次在 `S1` 成功接收后，`receive_floor(G)=max(1000,||G-S1||)` 仅为条件相容的最小可能 `rho`，不是实际接收半径。
+- 数值证书：Q1 `DEFAULT_TOLERANCES` 仅用于底层几何。`eps_rec` 是独立的 Q2 branch-and-bound 认证误差参数，当前未获模型冻结；`Q2Config.eps_rec_m=None` 时采用明确标记为 `IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED` 的开发默认值，并在 diagnostics/certificate 输出实际值和来源。三角单元使用 2-Lipschitz 上界。
+- 严格证书状态：`CERTIFIED_STRICT`（`certified=True, strict_receive=True`）、`CERTIFIED_VIOLATION`（`certified=True, strict_receive=False`）、`UNRESOLVED`（`certified=False, strict_receive=None`）。只有 `certificate.status==CERTIFIED_STRICT` 可进入未来 `Cstrict`；violation 排除；unresolved 必须继续细分、增加预算或显式报告，不得静默排除并声称搜索完整。
 - 测试文件：B_code/tests/test_q2_selection.py
 - 算法版本：Q2-selection-v2.1（开发中，当前完成 M1--M3）
 - 状态：CODED=NO, TESTED=NO, VERIFIED=NO；T01--T11 已实现并通过，T12--T17 未实现/未运行。不得自行标记 VERIFIED。
