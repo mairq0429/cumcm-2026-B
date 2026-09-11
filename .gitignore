@@ -42,3 +42,7 @@ Thumbs.db
 
 # Local Tencent Docs upload staging area
 /07_tencent_docs_upload/
+
+# Q3 raw stress-test evidence (stored in Tencent Docs)
+/03_results/stress_test/q3/Q3-S-*/
+/03_results/stress_test/q3/preflight_failures/
