@@ -11,8 +11,8 @@
 - 结论：有界角误差集合成员定位独立模块已实现并通过本地测试，未接入 Q3。
 - 输入：[{"x": float, "y": float, "theta_deg": float}, ...]
 - 输出：可行区域、退化类型、面积、直径证书、指定直径圆覆盖、MEC、20 m 光学保证、17 m 操作阈值、松弛诊断。
-- 公式：P_m=D∩W_1∩...∩W_m；clearable=(R_MEC<=17 m)；within_optical_guarantee=(R_MEC<=20 m + numerical tolerance)。
-- 参数：1 degree、1800 m、外切正 720 边形、20 m 光学半径、3 m 队内安全裕度、17 m 操作阈值，均未改变。
+- 公式：P_m=D∩W_1∩...∩W_m；clearable=(R_MEC+EPS_MEC<=17 m)；within_optical_guarantee=(R_MEC+EPS_MEC<=20 m)。
+- 参数：官方参数为 1 degree 示向误差界、1800 m 目标区域半径和 20 m 光学清除半径；EPS_MEC=1.8e-4 m。外切正 720 边形、3 m 队内安全裕度、17 m 操作阈值及数值容差均为本队模型/程序参数，不是官方参数。
 - 程序要求：实现 B_code/src/q1_localization.py；测试位于 B_code/tests/test_q1_localization.py；保持 B_code/frozen/q3_baseline_v1/** 零修改。
 - 验证方法：18 项 unittest；1000 组固定 seed Monte Carlo；300 个随机凸多边形直径双算法；单调收缩；N 收敛；容差 0.1x/1x/10x 敏感性。
 - 影响论文章节：问题一定位区域、定位不确定性与清除判据；17 m 应表述为队内操作阈值而非官方物理阈值。
