@@ -33,7 +33,7 @@
 - Algorithm：圆盘正式用外切正 1440 边形，并同时算内接多边形夹逼；检查 1440→2880 的 area、JD、JR、Fstrict 与选点坐标。严格证书采用三角单元 branch-and-bound，活动单元直径 `h` 的上界为 `f(Gc)+2h`。误差、源样本和候选网格分别加密；只称“场景加密后的收敛数值最坏值”，不称连续解析全局最大值。
 - Validation：T01--T11 已覆盖 M1--M3；M4 的 T13 独立 `Gverify`、T14 最坏场景 replay、T17 source/error convergence 已覆盖并通过。T12 仍为 PARTIAL/NOT_RUN，因为 1440→2880 与 candidate grid 整体离散收敛属于 M6；T15--T16 的最终选择/完整物理过滤验证等待后续阶段。最终仍需圆盘、source、error、candidate 四类收敛及 `Lmin=20/50/100/150 m` 敏感性；若明显变化发出 `LMIN_SENSITIVE`。
 - References：《B题第二问鲁棒选点模型编程规格书 v2.1 建模确认清单冻结版》。
-- Last Verified By：尚未验证；本轮仅实现 M1--M3。
+- Last Verified By：尚未验证；当前实现已完成 M1--M4，M5--M6 及最终交叉验证待完成。
 
 ## Q3
 

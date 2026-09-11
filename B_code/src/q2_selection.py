@@ -75,6 +75,7 @@ class SourceScenario:
     sample_set: str = "Gext"
     source_level_m: float = 0.0
     origin: str = "interior"
+    near_limit_eta_m: Optional[float] = None
 
 
 @dataclass(frozen=True)
@@ -91,7 +92,9 @@ class WorstScenario:
     mec_center: Optional[Point]
     mec_support: tuple[Point, ...]
     source_level: float
+    sample_set: str
     sample_origin: str
+    near_limit_eta_m: Optional[float]
     tq3_move_from_s2_s: Optional[float]
 
 
@@ -499,6 +502,7 @@ def _add_source(
     sample_set: str,
     source_level_m: float,
     origin: str,
+    near_limit_eta_m: Optional[float] = None,
 ) -> None:
     if not physical_filter(point, S1):
         return
@@ -511,7 +515,118 @@ def _add_source(
             sample_set=sample_set,
             source_level_m=source_level_m,
             origin=origin,
+            near_limit_eta_m=near_limit_eta_m,
         )
+
+
+def _point_on_circle(center: Point, radius_m: float, angle: float, keep_inside_radius: bool) -> Point:
+    sample_radius = math.nextafter(radius_m, 0.0) if keep_inside_radius else radius_m
+    return (
+        center[0] + sample_radius * math.cos(angle),
+        center[1] + sample_radius * math.sin(angle),
+    )
+
+
+def _circle_polygon_intersection_angles(
+    center: Point, radius_m: float, polygon: Sequence[Point]
+) -> list[float]:
+    angles: list[float] = []
+    for index, a in enumerate(polygon):
+        b = polygon[(index + 1) % len(polygon)]
+        ax, ay = a[0] - center[0], a[1] - center[1]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        qa = dx * dx + dy * dy
+        qb = 2.0 * (ax * dx + ay * dy)
+        qc = ax * ax + ay * ay - radius_m * radius_m
+        discriminant = qb * qb - 4.0 * qa * qc
+        if qa == 0.0 or discriminant < 0.0:
+            continue
+        root = math.sqrt(max(0.0, discriminant))
+        for t in ((-qb - root) / (2.0 * qa), (-qb + root) / (2.0 * qa)):
+            if -1.0e-12 <= t <= 1.0 + 1.0e-12:
+                x, y = ax + min(1.0, max(0.0, t)) * dx, ay + min(1.0, max(0.0, t)) * dy
+                angles.append(math.atan2(y, x) % (2.0 * math.pi))
+    return sorted({round(angle, 14) for angle in angles})
+
+
+def _circle_arc_samples(
+    center: Point,
+    radius_m: float,
+    max_arc_step_m: float,
+    polygon: Sequence[Point],
+    region_type: str,
+    *,
+    phase: float,
+    keep_inside_radius: bool,
+) -> list[Point]:
+    """Sample every feasible circle arc, including arcs shorter than one step."""
+
+    cuts = _circle_polygon_intersection_angles(center, radius_m, polygon)
+    if not cuts:
+        probe = _point_on_circle(center, radius_m, 0.0, keep_inside_radius)
+        intervals = [(0.0, 2.0 * math.pi)] if point_in_convex_region(
+            probe, polygon, region_type, DEFAULT_TOLERANCES
+        ) else []
+    else:
+        intervals = []
+        for index, start in enumerate(cuts):
+            end = cuts[(index + 1) % len(cuts)]
+            if index == len(cuts) - 1:
+                end += 2.0 * math.pi
+            middle = (start + end) / 2.0
+            probe = _point_on_circle(center, radius_m, middle, keep_inside_radius)
+            if point_in_convex_region(probe, polygon, region_type, DEFAULT_TOLERANCES):
+                intervals.append((start, end))
+    result: list[Point] = []
+    for start, end in intervals:
+        count = max(1, int(math.ceil((end - start) * radius_m / max_arc_step_m)))
+        if phase == 0.0:
+            fractions = [k / count for k in range(count + 1)]
+        elif count == 1:
+            # Two quarter-phase points keep a very short feasible arc
+            # independently represented even if its midpoint is in Gext.
+            fractions = [0.25, 0.75]
+        else:
+            fractions = [(k + phase) / count for k in range(count)]
+        for fraction in fractions:
+            result.append(_point_on_circle(
+                center, radius_m, start + fraction * (end - start), keep_inside_radius
+            ))
+    return result
+
+
+def _add_physical_boundaries(
+    scenarios: dict[tuple[int, int], SourceScenario],
+    polygon: Sequence[Point],
+    region_type: str,
+    S1: Point,
+    step_m: float,
+    *,
+    sample_set: str,
+    phase: float,
+    verify: bool,
+    excluded: Optional[set[tuple[int, int]]] = None,
+) -> None:
+    excluded = excluded or set()
+    prefix = "verify_" if verify else "physical_boundary_"
+    definitions = [
+        ((0.0, 0.0), SOURCE_RADIUS_M, f"{prefix}target1800", True, None),
+        (S1, FIRST_RECEIVE_MAX_M, f"{prefix}receive1500", True, None),
+    ]
+    # Development sampling device for the open boundary ||G-S1||>5.
+    eta = 0.1 * step_m
+    definitions.append((S1, NEAR_RADIUS_M + eta, f"{prefix}near_limit", False, eta))
+    for center, radius, origin, keep_inside, near_eta in definitions:
+        for point in _circle_arc_samples(
+            center, radius, step_m, polygon, region_type,
+            phase=phase, keep_inside_radius=keep_inside
+        ):
+            if _source_key(point) in excluded:
+                continue
+            _add_source(
+                scenarios, point, S1, polygon, region_type, sample_set, step_m,
+                origin, near_limit_eta_m=near_eta,
+            )
 
 
 def build_Gext(
@@ -544,6 +659,11 @@ def build_Gext(
             if t < 1.0:
                 point = (a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]))
                 _add_source(scenarios, point, s1, polygon, region_type, "Gext", step, "boundary")
+
+    _add_physical_boundaries(
+        scenarios, polygon, region_type, s1, step,
+        sample_set="Gext", phase=0.0, verify=False,
+    )
 
     xs, ys = [p[0] for p in polygon], [p[1] for p in polygon]
     for ix in range(math.ceil(min(xs) / step), math.floor(max(xs) / step) + 1):
@@ -582,6 +702,11 @@ def build_Gverify(
         for k in range(count):
             t = (k + 0.5) / count
             add((a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])), "verify_boundary")
+
+    _add_physical_boundaries(
+        scenarios, polygon, region_type, s1, step,
+        sample_set="Gverify", phase=0.5, verify=True, excluded=excluded,
+    )
 
     xs, ys = [p[0] for p in polygon], [p[1] for p in polygon]
     ix0, ix1 = math.floor(min(xs) / step) - 1, math.ceil(max(xs) / step) + 1
@@ -662,7 +787,9 @@ def _worst_scenario(
         mec_center=center,
         mec_support=_mec_support(result, config.tolerances),
         source_level=source.source_level_m,
+        sample_set=source.sample_set,
         sample_origin=source.origin,
+        near_limit_eta_m=source.near_limit_eta_m,
         tq3_move_from_s2_s=None if center is None else _distance(S2, center) / SPEED_MPS,
     )
 
@@ -745,6 +872,45 @@ def evaluate_candidate(
     return evaluate_candidate_resolution(S2, S1, P1_bound, Gext, cfg.error_step_deg, cfg)
 
 
+def merge_verified_worst(
+    optimizer: CandidateResult,
+    verify: CandidateResult,
+    *,
+    convergence_passed: bool,
+) -> dict:
+    """Merge independent verification maxima into the candidate in place."""
+
+    optimizer_worst = dict(optimizer.worst_scenarios)
+    verify_worst = dict(verify.worst_scenarios)
+    validated_worst: dict[str, WorstScenario] = {}
+    verify_exceeded: dict[str, bool] = {}
+    for metric in ("JD", "JR", "JA"):
+        left, right = optimizer_worst.get(metric), verify_worst.get(metric)
+        if left is None and right is None:
+            continue
+        take_verify = left is None or (right is not None and right.value > left.value)
+        chosen = right if take_verify else left
+        assert chosen is not None
+        validated_worst[metric] = chosen
+        verify_exceeded[metric] = bool(take_verify and left is not None)
+        setattr(optimizer, metric, chosen.value)
+    optimizer.worst_scenarios = validated_worst
+    optimizer.official20_provisional = optimizer.JR is not None and optimizer.JR + EPS_MEC <= OFFICIAL_CLEAR_RADIUS_M
+    optimizer.operational17_provisional = optimizer.JR is not None and optimizer.JR + EPS_MEC <= OPERATIONAL_CLEAR_RADIUS_M
+    if convergence_passed:
+        optimizer.official20 = optimizer.official20_provisional
+        optimizer.operational17 = optimizer.operational17_provisional
+    else:
+        optimizer.official20 = None
+        optimizer.operational17 = None
+    return {
+        "optimizer_worst": optimizer_worst,
+        "verify_worst": verify_worst,
+        "validated_worst": validated_worst,
+        "verify_exceeded_optimizer": verify_exceeded,
+    }
+
+
 def _monotone(previous: CandidateResult, current: CandidateResult) -> dict[str, bool]:
     results = {}
     for metric in ("JD", "JR", "JA"):
@@ -823,6 +989,7 @@ def evaluate_candidate_nested(
     source_status = "UNRESOLVED"
     error_status = "UNRESOLVED"
     gverify_report: Optional[dict] = None
+    final_verify_result: Optional[CandidateResult] = None
 
     for level_index, source_level in enumerate(levels):
         sources = build_Gext(P1_bound, s1, source_level, previous_sources)
@@ -899,6 +1066,7 @@ def evaluate_candidate_nested(
         verify_result = evaluate_candidate_resolution(
             s2, s1, P1_bound, verify_sources, verify_error_step, cfg, certificate=certificate
         )
+        final_verify_result = verify_result
         previous_error_record = level_error_records[-2]
         error_est_d = max(cfg.tolerances.eps_cover, abs(final_result.JD - previous_error_record["JD"]))
         error_est_r = max(cfg.tolerances.eps_mec, abs(final_result.JR - previous_error_record["JR"]))
@@ -937,9 +1105,17 @@ def evaluate_candidate_nested(
         and gverify_report is not None
         and gverify_report["status"] == "PASS"
     )
+    merge_report = None
+    if final_verify_result is not None:
+        merge_report = merge_verified_worst(
+            final_result, final_verify_result, convergence_passed=overall_pass
+        )
+        if gverify_report is not None:
+            gverify_report["validated_JD"] = final_result.JD
+            gverify_report["validated_JR"] = final_result.JR
+            gverify_report["validated_JA"] = final_result.JA
+            gverify_report["verify_exceeded_optimizer"] = merge_report["verify_exceeded_optimizer"]
     if overall_pass:
-        final_result.official20 = final_result.JR + EPS_MEC <= OFFICIAL_CLEAR_RADIUS_M
-        final_result.operational17 = final_result.JR + EPS_MEC <= OPERATIONAL_CLEAR_RADIUS_M
         final_result.evaluation_status = "CONVERGED"
     else:
         final_result.evaluation_status = "UNRESOLVED"
@@ -963,6 +1139,9 @@ def evaluate_candidate_nested(
         "source_history": source_history,
         "error_history": error_history,
         "gverify": gverify_report,
+        "optimizer_worst": None if merge_report is None else merge_report["optimizer_worst"],
+        "verify_worst": None if merge_report is None else merge_report["verify_worst"],
+        "validated_worst": None if merge_report is None else merge_report["validated_worst"],
         "replay": replay,
         "warnings": sorted(set(warnings)),
     }
@@ -1044,5 +1223,6 @@ __all__ = [
     "receive_violation", "certified_strict", "make_P2", "fim_order_score",
     "build_Gext", "build_Gverify", "build_error_grid", "relchg",
     "evaluate_candidate_resolution", "evaluate_candidate", "evaluate_candidate_nested",
-    "replay_worst_scenario", "pareto_front", "select_best", "validate_solution", "solve_q2",
+    "merge_verified_worst", "replay_worst_scenario", "pareto_front", "select_best",
+    "validate_solution", "solve_q2",
 ]

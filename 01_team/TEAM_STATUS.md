@@ -11,7 +11,7 @@
 
 ## 进行中
 
-- Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M4 已实现；M5--M6 待实现。
+- Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M4 已实现，M4.1 physical-boundary/Gverify merge hardening 已完成；M5--M6 待实现。
 
 ## 待验证
 

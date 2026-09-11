@@ -1,3 +1,5 @@
+import copy
+from dataclasses import replace
 import math
 import os
 import sys
@@ -9,7 +11,7 @@ SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
-from q1_localization import DEFAULT_TOLERANCES, point_in_convex_region, wedge_halfplanes  # noqa: E402
+from q1_localization import DEFAULT_TOLERANCES, EPS_MEC, point_in_convex_region, wedge_halfplanes  # noqa: E402
 from q2_selection import (  # noqa: E402
     Q2Config,
     bearing,
@@ -20,6 +22,7 @@ from q2_selection import (  # noqa: E402
     certified_strict,
     evaluate_candidate_nested,
     make_P2,
+    merge_verified_worst,
     physical_filter,
     receive_floor,
     receive_violation,
@@ -164,13 +167,35 @@ class TestQ2M4NestedWorstCase(unittest.TestCase):
         fine_points = {item.G for item in fine}
         self.assertTrue(coarse_points <= fine_points)
         self.assertTrue(all(item.sample_set == "Gext" for item in fine))
-        self.assertTrue(all(item.origin in {"vertex", "boundary", "interior"} for item in fine))
+        gext_origins = {
+            "vertex", "boundary", "interior", "physical_boundary_target1800",
+            "physical_boundary_receive1500", "physical_boundary_near_limit",
+        }
+        self.assertTrue(all(item.origin in gext_origins for item in fine))
         self.assertTrue(all(physical_filter(item.G, self.S1) for item in fine))
+        self.assertTrue(any(item.origin == "physical_boundary_target1800" for item in fine))
+        boundary_samples = [item for item in fine if item.origin.startswith("physical_boundary_")]
+        self.assertTrue(boundary_samples)
+        self.assertTrue(all(physical_filter(item.G, self.S1) for item in boundary_samples))
+        near_samples = [item for item in fine if item.origin == "physical_boundary_near_limit"]
+        self.assertTrue(near_samples)
+        self.assertTrue(all(math.dist(item.G, self.S1) > 5.0 for item in near_samples))
+        finest = build_Gext(self.P1, self.S1, 5.0, fine)
+        eta20 = {item.near_limit_eta_m for item in coarse if item.origin == "physical_boundary_near_limit"}
+        eta10 = {item.near_limit_eta_m for item in fine if item.origin == "physical_boundary_near_limit" and item.source_level_m == 10.0}
+        eta5 = {item.near_limit_eta_m for item in finest if item.origin == "physical_boundary_near_limit" and item.source_level_m == 5.0}
+        self.assertEqual((eta20, eta10, eta5), ({2.0}, {1.0}, {0.5}))
         verify = build_Gverify(self.P1, self.S1, 10.0, fine)
         self.assertGreater(len(verify), len(fine))
         self.assertFalse({item.G for item in verify} & fine_points)
         self.assertTrue(all(item.sample_set == "Gverify" for item in verify))
-        self.assertTrue(all(item.origin in {"verify_boundary", "verify_interior"} for item in verify))
+        verify_origins = {
+            "verify_boundary", "verify_interior", "verify_target1800",
+            "verify_receive1500", "verify_near_limit",
+        }
+        self.assertTrue(all(item.origin in verify_origins for item in verify))
+        self.assertTrue(any(item.origin == "verify_target1800" for item in verify))
+        self.assertTrue(all(physical_filter(item.G, self.S1) for item in verify))
         coarse_errors, fine_errors = build_error_grid(0.1), build_error_grid(0.05)
         self.assertEqual((coarse_errors[0], coarse_errors[-1]), (-1.0, 1.0))
         self.assertIn(0.0, coarse_errors)
@@ -196,9 +221,30 @@ class TestQ2M4NestedWorstCase(unittest.TestCase):
         for metric in ("JD", "JR", "JA"):
             worst = candidate.worst_scenarios[metric]
             self.assertEqual(worst.metric, metric)
-            self.assertIn(worst.sample_origin, {"vertex", "boundary", "interior"})
+            self.assertIn(worst.sample_set, {"Gext", "Gverify"})
             self.assertTrue(physical_filter(worst.G, self.S1))
             self.assertEqual(self.result["replay"][metric]["status"], "PASS")
+
+    def test_M4_verified_threshold_crossing_uses_validated_JR(self):
+        optimizer = copy.deepcopy(self.result["candidate"])
+        verify = copy.deepcopy(self.result["candidate"])
+        optimizer.JR = 19.9998
+        optimizer.worst_scenarios["JR"] = replace(
+            optimizer.worst_scenarios["JR"], value=19.9998, mec_radius=19.9998,
+            sample_set="Gext", sample_origin="interior",
+        )
+        verify.JR = 20.0001
+        verify.worst_scenarios["JR"] = replace(
+            verify.worst_scenarios["JR"], value=20.0001, mec_radius=20.0001,
+            sample_set="Gverify", sample_origin="verify_interior",
+        )
+        self.assertLessEqual(verify.JR - optimizer.JR, 0.00036)
+        self.assertTrue(optimizer.JR + EPS_MEC <= 20.0)
+        report = merge_verified_worst(optimizer, verify, convergence_passed=True)
+        self.assertTrue(report["verify_exceeded_optimizer"]["JR"])
+        self.assertEqual(optimizer.JR, 20.0001)
+        self.assertEqual(optimizer.worst_scenarios["JR"].sample_set, "Gverify")
+        self.assertIs(optimizer.official20, False)
 
     def test_T17_source_error_convergence(self):
         self.assertEqual(self.result["source_convergence"], "PASS")
@@ -217,6 +263,60 @@ class TestQ2M4NestedWorstCase(unittest.TestCase):
         self.assertLessEqual(final_source["relchg_R"], 1.0e-3)
         self.assertNotIn("NON_MONOTONE_REFINEMENT", self.result["warnings"])
         self.assertTrue(self.result["strict_certificate_threshold_provisional"])
+
+
+class TestQ2M41StressCases(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        angle_b = math.degrees(math.atan2(500.0, 1600.0))
+        rad_b = math.radians(angle_b)
+        rad_c = math.radians(-0.5)
+        definitions = {
+            "B": ((1600.0, 500.0), angle_b, (1600.0 + 10.0 * math.cos(rad_b), 500.0 + 10.0 * math.sin(rad_b))),
+            "C": ((1700.0, 20.0), 359.5, (1700.0 + 10.0 * math.cos(rad_c), 20.0 + 10.0 * math.sin(rad_c))),
+            "D": ((-1000.0, 0.0), 0.0, (-900.0, 0.0)),
+        }
+        cls.cases = {}
+        for name, (s1, theta, s2) in definitions.items():
+            config = Q2Config(circle_sides=180, max_error_refine_rounds=3)
+            p1 = build_P1_bound(s1, theta, config)
+            started = time.perf_counter()
+            result = evaluate_candidate_nested(s2, s1, p1, config)
+            elapsed = time.perf_counter() - started
+            cls.cases[name] = (s1, p1, result, elapsed)
+            print(
+                f"M41_STRESS_{name} runtime={elapsed:.6f}s "
+                f"source={result['source_history']} error={result['error_history']} "
+                f"metrics={(result['candidate'].JD, result['candidate'].JR, result['candidate'].JA)} "
+                f"gverify={result['gverify']} replay={result['replay']} warnings={result['warnings']}"
+            )
+
+    def test_stress_B_C_D_complete(self):
+        for name, (_, _, result, _) in self.cases.items():
+            with self.subTest(case=name):
+                self.assertEqual(result["status"], "PASS")
+                self.assertEqual(result["source_convergence"], "PASS")
+                self.assertEqual(result["error_convergence"], "PASS")
+                self.assertEqual(result["gverify"]["status"], "PASS")
+                self.assertTrue(all(item["status"] == "PASS" for item in result["replay"].values()))
+                self.assertNotIn("NON_MONOTONE_REFINEMENT", result["warnings"])
+
+    def test_stress_D_receive_boundary_is_sampled(self):
+        s1, p1, result, _ = self.cases["D"]
+        gext = build_Gext(p1, s1, 20.0)
+        verify = build_Gverify(p1, s1, 20.0, gext)
+        receive_gext = [item for item in gext if item.origin == "physical_boundary_receive1500"]
+        receive_verify = [item for item in verify if item.origin == "verify_receive1500"]
+        self.assertTrue(receive_gext)
+        self.assertTrue(receive_verify)
+        self.assertTrue(all(physical_filter(item.G, s1) for item in receive_gext + receive_verify))
+        exceeded = result["gverify"]["verify_exceeded_optimizer"]
+        self.assertTrue(exceeded["JR"])
+        self.assertTrue(exceeded["JA"])
+        self.assertEqual(result["candidate"].worst_scenarios["JR"].sample_set, "Gverify")
+        self.assertEqual(result["candidate"].worst_scenarios["JA"].sample_set, "Gverify")
+        self.assertEqual(result["replay"]["JR"]["status"], "PASS")
+        self.assertEqual(result["replay"]["JA"]["status"], "PASS")
 
 
 if __name__ == "__main__":

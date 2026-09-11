@@ -37,10 +37,10 @@
 - 接收半径语义：实际物理量是固定但未知的 `rho∈[1000,1500]`；第一次在 `S1` 成功接收后，`receive_floor(G)=max(1000,||G-S1||)` 仅为条件相容的最小可能 `rho`，不是实际接收半径。
 - 数值证书：Q1 `DEFAULT_TOLERANCES` 仅用于底层几何。`eps_rec` 是独立的 Q2 branch-and-bound 认证误差参数，当前未获模型冻结；`Q2Config.eps_rec_m=None` 时采用明确标记为 `IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED` 的开发默认值，并在 diagnostics/certificate 输出实际值和来源。三角单元使用 2-Lipschitz 上界。
 - 严格证书状态：`CERTIFIED_STRICT`（`certified=True, strict_receive=True`）、`CERTIFIED_VIOLATION`（`certified=True, strict_receive=False`）、`UNRESOLVED`（`certified=False, strict_receive=None`）。只有 `certificate.status==CERTIFIED_STRICT` 可进入未来 `Cstrict`；violation 排除；unresolved 必须继续细分、增加预算或显式报告，不得静默排除并声称搜索完整。
-- M4 源样本：`build_Gext` 生成物理过滤后的 vertex/boundary/interior 样本，并通过保留 previous 保证 20→10→5 m 嵌套；`build_Gverify` 使用最终步长一半的 shifted grid 与错位边界采样，确定性排除最终 Gext 坐标。每个 `SourceScenario` 记录 sample_set、source_level_m、origin。
+- M4 源样本：`build_Gext` 生成物理过滤后的 vertex/boundary/interior 样本，并显式按弧长步长采样 `||G||=1800`、`||G-S1||=1500` 和 `||G-S1||=5+eta(level)` 的真实物理边界；通过保留 previous 保证 20→10→5 m 嵌套。`eta=0.1*source_level` 仅为趋近开边界的实现采样量，不是官方或已验证模型参数。`build_Gverify` 使用最终步长一半的 shifted grid、错位 P1 边界及独立 1/2 相位物理圆弧采样，短弧使用 1/4、3/4 双错相位，并确定性排除最终 Gext 坐标。每个 `SourceScenario` 记录 sample_set、source_level_m、origin、near_limit_eta_m。
 - M4 误差与评价：`build_error_grid` 始终包含 -1/0/+1 degree，并保证 0.1→0.05→0.025... 嵌套。`evaluate_candidate_resolution` 对 near 只评价一次，对普通场景遍历完整误差网格；`evaluate_candidate_nested` 在每一 source level 内先完成 JD/JR error convergence，再比较 source convergence，最后进入独立 Gverify。输出措辞固定为“场景加密后的收敛数值最坏值”。
-- M4 最坏场景与 replay：JD/JR/JA 分别保存扩充后的 `WorstScenario`，包括 G/e2/status/theta/三项几何/MEC center/support/source level/origin；`replay_worst_scenario` 用 Q1 容差重算并逐项核对。TQ3 移动时间仅随最坏场景记录，不参与评价或排序。
-- M4 最终性：仅当 source convergence、error convergence 和独立 Gverify 均 PASS 时，`official20/operational17` 才作为 final 字段；否则只提供 `official20_provisional/operational17_provisional`。`eps_rec` 仍为 provisional，结果携带实际值与来源。
+- M4 最坏场景与 replay：JD/JR/JA 分别保存扩充后的 `WorstScenario`，包括 G/e2/status/theta/三项几何/MEC center/support/source level/sample set/origin；Gverify 完成后按指标分别执行 `validated=max(optimizer,verify)`，若 verify 更大则最终 CandidateResult 和 WorstScenario 均替换为 Gverify 场景，同时保留 optimizer_worst、verify_worst、validated_worst。`replay_worst_scenario` 用 Q1 容差重算最终 validated worst 并逐项核对。TQ3 移动时间仅随最坏场景记录，不参与评价或排序。
+- M4 最终性：仅当 source convergence、error convergence 和独立 Gverify 均 PASS 时，才基于 validated JR 生成 `official20/operational17` final 字段；否则只提供基于 validated JR 的 `official20_provisional/operational17_provisional`。`eps_rec` 仍为 provisional，结果携带实际值与来源。
 - 测试文件：B_code/tests/test_q2_selection.py
 - 算法版本：Q2-selection-v2.1（开发中，当前完成 M1--M4）
 - 状态：CODED=NO, TESTED=NO, VERIFIED=NO；T01--T11、T13、T14、T17 已通过；T12 保持 PARTIAL/NOT_RUN，T15--T16 等待 M5--M6 完整验证。不得自行标记 VERIFIED。
