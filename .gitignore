@@ -1,0 +1,41 @@
+**/__pycache__/
+*.pyc
+.venv/
+venv/
+*.tmp
+
+
+# Simulator binaries
+/Jammers-simulator-full-win64.7z
+/Jammers-simulator-full-win64/
+
+# Local backups
+/06_backup/
+
+# Python cache
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Temporary files
+*.tmp
+~$*.docx
+~$*.xlsx
+.DS_Store
+Thumbs.db
+
+# Shared cloud files
+/01_team/LITERATURE_TRACKER.xlsx
+/03_results/RESULTS_MASTER.xlsx
+
+# Official binary materials are shared through cloud storage
+/官方材料/
+
+# Paper binary files
+*.docx
+*.pdf
+
+# Large/raw logs
+*.log
+/官方材料/
