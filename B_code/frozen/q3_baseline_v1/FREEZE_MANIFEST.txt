@@ -1,0 +1,18 @@
+algorithm_version = Q3-baseline-v1
+freeze_time = 2026-09-11T10:52:43+08:00
+git_commit = 2a9ec32258ca6ed366503503bf273c77cf313df0
+
+source_files:
+- B_code/scripts/baseline_q3_all.py
+  frozen_as = B_code/frozen/q3_baseline_v1/baseline_q3_all.py
+  sha256 = 42263FF64E21C8D2358DF249E86C19975C96877A9CAE5193B3DE8D568EC68111
+- B_code/src/simulator_client.py
+  frozen_as = B_code/frozen/q3_baseline_v1/simulator_client.py
+  sha256 = C4BB13E11F9DB34FB0B349D7AB8C9A5503A84CCD001BF22651974272AA6B8208
+- B_code/src/geometry.py
+  frozen_as = B_code/frozen/q3_baseline_v1/geometry.py
+  sha256 = 793B2217CA3B3CA6D0B3E2E67CBEE2C3AE4A2B1B4192885A37A85AA3AC145DF4
+
+该版本用于 Q3 压力测试。
+压力测试期间禁止修改算法。
+失败案例必须先记录，再统一诊断。
