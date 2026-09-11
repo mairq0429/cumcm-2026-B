@@ -1,6 +1,7 @@
 import math
 import os
 import sys
+import time
 import unittest
 
 
@@ -12,8 +13,12 @@ from q1_localization import DEFAULT_TOLERANCES, point_in_convex_region, wedge_ha
 from q2_selection import (  # noqa: E402
     Q2Config,
     bearing,
+    build_Gext,
+    build_Gverify,
+    build_error_grid,
     build_P1_bound,
     certified_strict,
+    evaluate_candidate_nested,
     make_P2,
     physical_filter,
     receive_floor,
@@ -138,6 +143,80 @@ class TestStrictCertificateImplementationSemantics(unittest.TestCase):
         self.assertIs(certificate["strict_receive"], False)
         self.assertIsNotNone(certificate["counterexample"])
         self.assertTrue(physical_filter(certificate["counterexample"], self.S1))
+
+
+class TestQ2M4NestedWorstCase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.S1 = (1700.0, 0.0)
+        cls.S2 = (1710.0, 0.0)
+        cls.config = Q2Config(circle_sides=360, max_error_refine_rounds=3)
+        cls.P1 = build_P1_bound(cls.S1, 0.0, cls.config)
+        started = time.perf_counter()
+        cls.result = evaluate_candidate_nested(cls.S2, cls.S1, cls.P1, cls.config)
+        cls.elapsed_seconds = time.perf_counter() - started
+        print(f"M4_SYNTHETIC_RUNTIME_SECONDS={cls.elapsed_seconds:.6f}")
+
+    def test_M4_sampling_metadata_and_nested_grids(self):
+        coarse = build_Gext(self.P1, self.S1, 20.0)
+        fine = build_Gext(self.P1, self.S1, 10.0, coarse)
+        coarse_points = {item.G for item in coarse}
+        fine_points = {item.G for item in fine}
+        self.assertTrue(coarse_points <= fine_points)
+        self.assertTrue(all(item.sample_set == "Gext" for item in fine))
+        self.assertTrue(all(item.origin in {"vertex", "boundary", "interior"} for item in fine))
+        self.assertTrue(all(physical_filter(item.G, self.S1) for item in fine))
+        verify = build_Gverify(self.P1, self.S1, 10.0, fine)
+        self.assertGreater(len(verify), len(fine))
+        self.assertFalse({item.G for item in verify} & fine_points)
+        self.assertTrue(all(item.sample_set == "Gverify" for item in verify))
+        self.assertTrue(all(item.origin in {"verify_boundary", "verify_interior"} for item in verify))
+        coarse_errors, fine_errors = build_error_grid(0.1), build_error_grid(0.05)
+        self.assertEqual((coarse_errors[0], coarse_errors[-1]), (-1.0, 1.0))
+        self.assertIn(0.0, coarse_errors)
+        self.assertTrue(set(coarse_errors) <= set(fine_errors))
+
+    def test_T13_independent_Gverify(self):
+        report = self.result["gverify"]
+        self.assertEqual(self.result["status"], "PASS")
+        self.assertEqual(self.result["certificate"]["status"], "CERTIFIED_STRICT")
+        self.assertEqual(report["status"], "PASS")
+        self.assertEqual(report["independent_coordinate_overlap"], 0)
+        self.assertTrue(report["strict_receive_check"])
+        self.assertTrue(report["JD_check"])
+        self.assertTrue(report["JR_check"])
+        self.assertLessEqual(
+            report["max_receive_violation_m"], self.result["certificate"]["eps_rec_m"]
+        )
+
+    def test_T14_worst_scenario_replay(self):
+        candidate = self.result["candidate"]
+        self.assertEqual(set(candidate.worst_scenarios), {"JD", "JR", "JA"})
+        self.assertEqual(set(self.result["replay"]), {"JD", "JR", "JA"})
+        for metric in ("JD", "JR", "JA"):
+            worst = candidate.worst_scenarios[metric]
+            self.assertEqual(worst.metric, metric)
+            self.assertIn(worst.sample_origin, {"vertex", "boundary", "interior"})
+            self.assertTrue(physical_filter(worst.G, self.S1))
+            self.assertEqual(self.result["replay"][metric]["status"], "PASS")
+
+    def test_T17_source_error_convergence(self):
+        self.assertEqual(self.result["source_convergence"], "PASS")
+        self.assertEqual(self.result["error_convergence"], "PASS")
+        self.assertEqual([item["source_level_m"] for item in self.result["source_history"]], [20.0, 10.0])
+        for source_level in (20.0, 10.0):
+            records = [item for item in self.result["error_history"] if item["source_level_m"] == source_level]
+            self.assertEqual([item["error_step_deg"] for item in records], [0.1, 0.05])
+            self.assertLessEqual(records[-1]["relchg_D"], 1.0e-3)
+            self.assertLessEqual(records[-1]["relchg_R"], 1.0e-3)
+            self.assertTrue(records[-1]["JD_monotone"])
+            self.assertTrue(records[-1]["JR_monotone"])
+            self.assertTrue(records[-1]["JA_monotone"])
+        final_source = self.result["source_history"][-1]
+        self.assertLessEqual(final_source["relchg_D"], 1.0e-3)
+        self.assertLessEqual(final_source["relchg_R"], 1.0e-3)
+        self.assertNotIn("NON_MONOTONE_REFINEMENT", self.result["warnings"])
+        self.assertTrue(self.result["strict_certificate_threshold_provisional"])
 
 
 if __name__ == "__main__":

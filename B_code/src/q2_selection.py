@@ -1,6 +1,6 @@
 """Q2 robust second-station selection, model Q2-robust-selection-v2.1.
 
-This first implementation slice covers milestones M1--M3.  All convex
+This implementation covers milestones M1--M4.  All convex
 clipping, polygon cleanup, region classification, diameter, MEC and geometry
 tolerances are imported from the verified Q1 implementation.
 """
@@ -51,6 +51,7 @@ class Q2Config:
     candidate_steps_m: tuple[float, ...] = (50.0, 20.0, 5.0)
     certificate_max_depth: int = 24
     certificate_max_cells: int = 200_000
+    max_error_refine_rounds: int = 4
     tolerances: NumericalTolerances = field(default=DEFAULT_TOLERANCES)
 
     def __post_init__(self) -> None:
@@ -62,6 +63,8 @@ class Q2Config:
             raise ValueError("sampling steps must be positive")
         if self.certificate_max_depth < 0 or self.certificate_max_cells < 0:
             raise ValueError("certificate limits must be nonnegative")
+        if self.max_error_refine_rounds < 1:
+            raise ValueError("max_error_refine_rounds must be positive")
 
 
 @dataclass(frozen=True)
@@ -70,6 +73,8 @@ class SourceScenario:
     e2_deg: Optional[float] = None
     weight_m2: float = 0.0
     sample_set: str = "Gext"
+    source_level_m: float = 0.0
+    origin: str = "interior"
 
 
 @dataclass(frozen=True)
@@ -79,6 +84,15 @@ class WorstScenario:
     G: Point
     e2_deg: Optional[float]
     status: str
+    theta2_hat_deg: Optional[float]
+    diameter: float
+    mec_radius: float
+    area: float
+    mec_center: Optional[Point]
+    mec_support: tuple[Point, ...]
+    source_level: float
+    sample_origin: str
+    tq3_move_from_s2_s: Optional[float]
 
 
 @dataclass
@@ -90,11 +104,18 @@ class CandidateResult:
     JD: Optional[float]
     JR: Optional[float]
     JA: Optional[float]
-    official20: bool
-    operational17: bool
+    official20: Optional[bool]
+    operational17: Optional[bool]
     worst_scenarios: dict[str, WorstScenario]
     HFIM: Optional[float] = None
-    robust_guarantee: bool = True
+    robust_guarantee: bool = False
+    official20_provisional: Optional[bool] = None
+    operational17_provisional: Optional[bool] = None
+    source_count: int = 0
+    error_count: int = 0
+    scenario_count: int = 0
+    error_step_deg: Optional[float] = None
+    evaluation_status: str = "DEVELOPMENT"
 
     def to_dict(self) -> dict:
         result = asdict(self)
@@ -458,11 +479,134 @@ def make_P2(
     return analysis
 
 
-def _error_values(step_deg: float) -> list[float]:
-    count = int(math.ceil(BEARING_ERROR_DEG / step_deg))
+def _source_key(point: Point) -> tuple[int, int]:
+    """Deterministic 1e-7 m key; far tighter than any sampling level."""
+
+    return round(point[0] * 1.0e7), round(point[1] * 1.0e7)
+
+
+def _p1_polygon(P1_bound: Sequence[Point] | Mapping[str, object]) -> tuple[list[Point], str]:
+    polygon = list(P1_bound["P1_out"] if isinstance(P1_bound, Mapping) else P1_bound)
+    return polygon, classify_region(polygon, DEFAULT_TOLERANCES)[0]
+
+
+def _add_source(
+    target: dict[tuple[int, int], SourceScenario],
+    point: Point,
+    S1: Point,
+    polygon: Sequence[Point],
+    region_type: str,
+    sample_set: str,
+    source_level_m: float,
+    origin: str,
+) -> None:
+    if not physical_filter(point, S1):
+        return
+    if not point_in_convex_region(point, polygon, region_type, DEFAULT_TOLERANCES):
+        return
+    key = _source_key(point)
+    if key not in target:
+        target[key] = SourceScenario(
+            G=point,
+            sample_set=sample_set,
+            source_level_m=source_level_m,
+            origin=origin,
+        )
+
+
+def build_Gext(
+    P1_bound: Sequence[Point] | Mapping[str, object],
+    S1: Sequence[float],
+    source_level_m: float,
+    previous: Optional[Iterable[SourceScenario]] = None,
+) -> list[SourceScenario]:
+    """Build one deterministic, nested optimizer source set."""
+
+    step = float(source_level_m)
+    if not math.isfinite(step) or step <= 0.0:
+        raise ValueError("source_level_m must be positive and finite")
+    s1 = _point(S1, "S1")
+    polygon, region_type = _p1_polygon(P1_bound)
+    scenarios: dict[tuple[int, int], SourceScenario] = {}
+    for scenario in previous or ():
+        if scenario.sample_set != "Gext":
+            raise ValueError("previous samples for build_Gext must belong to Gext")
+        if physical_filter(scenario.G, s1):
+            scenarios[_source_key(scenario.G)] = scenario
+
+    for vertex in polygon:
+        _add_source(scenarios, vertex, s1, polygon, region_type, "Gext", step, "vertex")
+    for index, a in enumerate(polygon):
+        b = polygon[(index + 1) % len(polygon)]
+        length = _distance(a, b)
+        for k in range(1, int(math.floor(length / step)) + 1):
+            t = k * step / length
+            if t < 1.0:
+                point = (a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]))
+                _add_source(scenarios, point, s1, polygon, region_type, "Gext", step, "boundary")
+
+    xs, ys = [p[0] for p in polygon], [p[1] for p in polygon]
+    for ix in range(math.ceil(min(xs) / step), math.floor(max(xs) / step) + 1):
+        x = ix * step
+        for iy in range(math.ceil(min(ys) / step), math.floor(max(ys) / step) + 1):
+            _add_source(scenarios, (x, iy * step), s1, polygon, region_type, "Gext", step, "interior")
+    return [scenarios[key] for key in sorted(scenarios)]
+
+
+def build_Gverify(
+    P1_bound: Sequence[Point] | Mapping[str, object],
+    S1: Sequence[float],
+    final_source_step_m: float,
+    exclude: Iterable[SourceScenario] = (),
+) -> list[SourceScenario]:
+    """Build an independent half-step, shifted deterministic verification set."""
+
+    final_step = float(final_source_step_m)
+    if not math.isfinite(final_step) or final_step <= 0.0:
+        raise ValueError("final_source_step_m must be positive and finite")
+    step = final_step / 2.0
+    s1 = _point(S1, "S1")
+    polygon, region_type = _p1_polygon(P1_bound)
+    excluded = {_source_key(item.G) for item in exclude}
+    scenarios: dict[tuple[int, int], SourceScenario] = {}
+
+    def add(point: Point, origin: str) -> None:
+        key = _source_key(point)
+        if key not in excluded:
+            _add_source(scenarios, point, s1, polygon, region_type, "Gverify", step, origin)
+
+    for index, a in enumerate(polygon):
+        b = polygon[(index + 1) % len(polygon)]
+        length = _distance(a, b)
+        count = max(1, int(math.ceil(length / step)))
+        for k in range(count):
+            t = (k + 0.5) / count
+            add((a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])), "verify_boundary")
+
+    xs, ys = [p[0] for p in polygon], [p[1] for p in polygon]
+    ix0, ix1 = math.floor(min(xs) / step) - 1, math.ceil(max(xs) / step) + 1
+    iy0, iy1 = math.floor(min(ys) / step) - 1, math.ceil(max(ys) / step) + 1
+    for ix in range(ix0, ix1 + 1):
+        x = (ix + 0.5) * step
+        for iy in range(iy0, iy1 + 1):
+            add((x, (iy + 0.5) * step), "verify_interior")
+    return [scenarios[key] for key in sorted(scenarios)]
+
+
+def build_error_grid(step_deg: float) -> list[float]:
+    """Build a deterministic error grid containing -1, 0 and +1 degrees."""
+
+    step = float(step_deg)
+    if not math.isfinite(step) or step <= 0.0:
+        raise ValueError("step_deg must be positive and finite")
+    count = int(math.floor(BEARING_ERROR_DEG / step + 1.0e-12))
     values = {-BEARING_ERROR_DEG, 0.0, BEARING_ERROR_DEG}
-    values.update(max(-1.0, min(1.0, -1.0 + k * step_deg)) for k in range(2 * count + 1))
+    values.update(round(k * step, 12) for k in range(-count, count + 1) if abs(k * step) <= 1.0 + 1.0e-12)
     return sorted(values)
+
+
+def relchg(a: float, b: float) -> float:
+    return abs(a - b) / max(1.0, abs(a), abs(b))
 
 
 def fim_order_score(S1: Sequence[float], S2: Sequence[float], sources: Iterable[Sequence[float]]) -> Optional[float]:
@@ -479,31 +623,92 @@ def fim_order_score(S1: Sequence[float], S2: Sequence[float], sources: Iterable[
     return values[int(math.floor(0.05 * (len(values) - 1)))]
 
 
-def evaluate_candidate(
+def _mec_support(result: Mapping[str, object], tolerances: NumericalTolerances) -> tuple[Point, ...]:
+    center, radius = result.get("mec_center"), result.get("mec_radius")
+    if center is None or radius is None:
+        return ()
+    center_point = _point(center)
+    radius_value = float(radius)
+    support_tolerance = max(tolerances.eps_mec, 1.0e-9 * max(1.0, radius_value))
+    support = [
+        _point(point) for point in result.get("polygon", [])
+        if abs(_distance(_point(point), center_point) - radius_value) <= support_tolerance
+    ]
+    if not support and result.get("polygon"):
+        support = [max((_point(p) for p in result["polygon"]), key=lambda p: _distance(p, center_point))]
+    return tuple(sorted(support))
+
+
+def _worst_scenario(
+    metric: str,
+    value: float,
+    source: SourceScenario,
+    error: Optional[float],
+    result: Mapping[str, object],
+    config: Q2Config,
+    S2: Point,
+) -> WorstScenario:
+    center = None if result.get("mec_center") is None else _point(result["mec_center"])
+    return WorstScenario(
+        metric=metric,
+        value=value,
+        G=source.G,
+        e2_deg=error,
+        status=str(result["status"]),
+        theta2_hat_deg=None if result.get("theta2_hat_deg") is None else float(result["theta2_hat_deg"]),
+        diameter=float(result["diameter"]),
+        mec_radius=float(result["mec_radius"]),
+        area=float(result["area"]),
+        mec_center=center,
+        mec_support=_mec_support(result, config.tolerances),
+        source_level=source.source_level_m,
+        sample_origin=source.origin,
+        tq3_move_from_s2_s=None if center is None else _distance(S2, center) / SPEED_MPS,
+    )
+
+
+def evaluate_candidate_resolution(
     S2: Sequence[float],
     S1: Sequence[float],
     P1_bound: Sequence[Point] | Mapping[str, object],
-    Gext: Iterable[Sequence[float] | SourceScenario],
+    source_scenarios: Iterable[Sequence[float] | SourceScenario],
+    error_step_deg: float,
     config: Optional[Q2Config] = None,
+    *,
+    certificate: Optional[dict] = None,
 ) -> CandidateResult:
+    """Evaluate one candidate at one source/error resolution."""
+
     cfg = config or Q2Config()
     s1, s2 = _point(S1, "S1"), _point(S2, "S2")
-    certificate = certified_strict(s2, P1_bound, s1, cfg)
+    certificate = certificate or certified_strict(s2, P1_bound, s1, cfg)
     worst: dict[str, WorstScenario] = {}
     source_points: list[Point] = []
-    for item in Gext:
-        source = item.G if isinstance(item, SourceScenario) else _point(item, "G")
-        if not physical_filter(source, s1):
+    normalized: list[SourceScenario] = []
+    for item in source_scenarios:
+        scenario = item if isinstance(item, SourceScenario) else SourceScenario(
+            G=_point(item, "G"), source_level_m=0.0, origin="interior"
+        )
+        if not physical_filter(scenario.G, s1):
             continue
+        normalized.append(scenario)
+    normalized.sort(key=lambda item: (_source_key(item.G), item.origin))
+    error_grid = build_error_grid(error_step_deg)
+    scenario_count = 0
+    for scenario in normalized:
+        source = scenario.G
         source_points.append(source)
-        errors: Iterable[Optional[float]] = [None] if _distance(source, s2) <= NEAR_RADIUS_M + cfg.tolerances.eps_geo else _error_values(cfg.error_step_deg)
+        errors: Iterable[Optional[float]] = [None] if _distance(source, s2) <= NEAR_RADIUS_M + cfg.tolerances.eps_geo else error_grid
         for error in errors:
+            scenario_count += 1
             result = make_P2(P1_bound, s2, source, 0.0 if error is None else error, config=cfg)
             for metric, field_name in (("JD", "diameter"), ("JR", "mec_radius"), ("JA", "area")):
                 value = result[field_name]
                 if value is not None and (metric not in worst or value > worst[metric].value):
-                    worst[metric] = WorstScenario(metric, value, source, error, result["status"])
+                    worst[metric] = _worst_scenario(metric, float(value), scenario, error, result, cfg, s2)
     JD, JR, JA = (worst[name].value if name in worst else None for name in ("JD", "JR", "JA"))
+    provisional20 = JR is not None and JR + EPS_MEC <= OFFICIAL_CLEAR_RADIUS_M
+    provisional17 = JR is not None and JR + EPS_MEC <= OPERATIONAL_CLEAR_RADIUS_M
     return CandidateResult(
         S2=s2,
         strict_receive=certificate["strict_receive"],
@@ -512,11 +717,255 @@ def evaluate_candidate(
         JD=JD,
         JR=JR,
         JA=JA,
-        official20=JR is not None and JR + EPS_MEC <= OFFICIAL_CLEAR_RADIUS_M,
-        operational17=JR is not None and JR + EPS_MEC <= OPERATIONAL_CLEAR_RADIUS_M,
+        official20=None,
+        operational17=None,
         worst_scenarios=worst,
         HFIM=fim_order_score(s1, s2, source_points),
+        robust_guarantee=certificate["status"] == "CERTIFIED_STRICT",
+        official20_provisional=provisional20,
+        operational17_provisional=provisional17,
+        source_count=len(normalized),
+        error_count=len(error_grid),
+        scenario_count=scenario_count,
+        error_step_deg=float(error_step_deg),
+        evaluation_status=("UNRESOLVED" if certificate["status"] == "UNRESOLVED" else "RESOLUTION_EVALUATED"),
     )
+
+
+def evaluate_candidate(
+    S2: Sequence[float],
+    S1: Sequence[float],
+    P1_bound: Sequence[Point] | Mapping[str, object],
+    Gext: Iterable[Sequence[float] | SourceScenario],
+    config: Optional[Q2Config] = None,
+) -> CandidateResult:
+    """Compatibility wrapper for one configured resolution."""
+
+    cfg = config or Q2Config()
+    return evaluate_candidate_resolution(S2, S1, P1_bound, Gext, cfg.error_step_deg, cfg)
+
+
+def _monotone(previous: CandidateResult, current: CandidateResult) -> dict[str, bool]:
+    results = {}
+    for metric in ("JD", "JR", "JA"):
+        before, after = getattr(previous, metric), getattr(current, metric)
+        scale = max(1.0, abs(before or 0.0), abs(after or 0.0))
+        results[metric] = before is None or after is None or after + 1.0e-10 * scale >= before
+    return results
+
+
+def replay_worst_scenario(
+    worst: WorstScenario,
+    P1_bound: Sequence[Point] | Mapping[str, object],
+    S2: Sequence[float],
+    config: Optional[Q2Config] = None,
+) -> dict:
+    """Replay one stored worst scenario and compare all relevant geometry."""
+
+    cfg = config or Q2Config()
+    result = make_P2(P1_bound, S2, worst.G, 0.0 if worst.e2_deg is None else worst.e2_deg, config=cfg)
+    field = {"JD": "diameter", "JR": "mec_radius", "JA": "area"}[worst.metric]
+    value_tolerance = {
+        "JD": cfg.tolerances.eps_cover,
+        "JR": cfg.tolerances.eps_mec,
+        "JA": cfg.tolerances.eps_area,
+    }[worst.metric]
+    center_now = None if result.get("mec_center") is None else _point(result["mec_center"])
+    center_ok = (worst.mec_center is None and center_now is None) or (
+        worst.mec_center is not None and center_now is not None
+        and _distance(worst.mec_center, center_now) <= cfg.tolerances.eps_mec
+    )
+    support_now = _mec_support(result, cfg.tolerances)
+    checks = {
+        "value": abs(float(result[field]) - worst.value) <= value_tolerance,
+        "status": result["status"] == worst.status,
+        "G": _distance(_point(result["G"]), worst.G) <= cfg.tolerances.eps_geo,
+        "e2": result["theta2_hat_deg"] is None if worst.e2_deg is None else abs(
+            float(result["theta2_hat_deg"]) - float(worst.theta2_hat_deg)
+        ) <= cfg.tolerances.eps_angle_deg,
+        "mec_center": center_ok,
+        "mec_support": support_now == worst.mec_support,
+    }
+    return {
+        "metric": worst.metric,
+        "status": "PASS" if all(checks.values()) else "FAIL",
+        "checks": checks,
+        "replayed_value": result[field],
+        "stored_value": worst.value,
+        "tolerance": value_tolerance,
+    }
+
+
+def evaluate_candidate_nested(
+    S2: Sequence[float],
+    S1: Sequence[float],
+    P1_bound: Sequence[Point] | Mapping[str, object],
+    config: Optional[Q2Config] = None,
+    *,
+    source_levels_m: Sequence[float] = (20.0, 10.0, 5.0),
+) -> dict:
+    """Run the M4 source-outer/error-inner deterministic convergence engine."""
+
+    cfg = config or Q2Config()
+    s1, s2 = _point(S1, "S1"), _point(S2, "S2")
+    levels = tuple(float(value) for value in source_levels_m)
+    if len(levels) < 2 or any(value <= 0.0 for value in levels):
+        raise ValueError("at least two positive source levels are required")
+    certificate = certified_strict(s2, P1_bound, s1, cfg)
+    warnings: list[str] = []
+    error_history: list[dict] = []
+    source_history: list[dict] = []
+    previous_sources: list[SourceScenario] = []
+    previous_source_result: Optional[CandidateResult] = None
+    final_result: Optional[CandidateResult] = None
+    final_sources: list[SourceScenario] = []
+    final_error_step: Optional[float] = None
+    source_status = "UNRESOLVED"
+    error_status = "UNRESOLVED"
+    gverify_report: Optional[dict] = None
+
+    for level_index, source_level in enumerate(levels):
+        sources = build_Gext(P1_bound, s1, source_level, previous_sources)
+        previous_sources = sources
+        previous_error_result: Optional[CandidateResult] = None
+        error_status = "UNRESOLVED"
+        level_error_records: list[dict] = []
+        for error_round in range(cfg.max_error_refine_rounds + 1):
+            error_step = cfg.error_step_deg / (2 ** error_round)
+            current = evaluate_candidate_resolution(
+                s2, s1, P1_bound, sources, error_step, cfg, certificate=certificate
+            )
+            monotone = {"JD": True, "JR": True, "JA": True}
+            rel_d = rel_r = rel_a = None
+            if previous_error_result is not None:
+                monotone = _monotone(previous_error_result, current)
+                rel_d = relchg(previous_error_result.JD, current.JD)
+                rel_r = relchg(previous_error_result.JR, current.JR)
+                rel_a = relchg(previous_error_result.JA, current.JA)
+                if not all(monotone.values()):
+                    warnings.append("NON_MONOTONE_REFINEMENT")
+                if rel_d <= 1.0e-3 and rel_r <= 1.0e-3 and all(monotone.values()):
+                    error_status = "PASS"
+            record = {
+                "source_level_m": source_level,
+                "source_count": current.source_count,
+                "error_step_deg": error_step,
+                "error_count": current.error_count,
+                "scenario_count": current.scenario_count,
+                "JD": current.JD, "JR": current.JR, "JA": current.JA,
+                "relchg_D": rel_d, "relchg_R": rel_r, "relchg_A": rel_a,
+                "JD_monotone": monotone["JD"], "JR_monotone": monotone["JR"],
+                "JA_monotone": monotone["JA"],
+            }
+            error_history.append(record)
+            level_error_records.append(record)
+            final_result, final_sources, final_error_step = current, sources, error_step
+            if error_status == "PASS":
+                break
+            previous_error_result = current
+        if error_status != "PASS":
+            warnings.append("ERROR_CONVERGENCE_UNRESOLVED")
+            break
+
+        source_monotone = {"JD": True, "JR": True, "JA": True}
+        rel_d = rel_r = rel_a = None
+        if previous_source_result is not None:
+            source_monotone = _monotone(previous_source_result, final_result)
+            rel_d = relchg(previous_source_result.JD, final_result.JD)
+            rel_r = relchg(previous_source_result.JR, final_result.JR)
+            rel_a = relchg(previous_source_result.JA, final_result.JA)
+            if not all(source_monotone.values()):
+                warnings.append("NON_MONOTONE_REFINEMENT")
+            if rel_d <= 1.0e-3 and rel_r <= 1.0e-3 and all(source_monotone.values()):
+                source_status = "PASS"
+        source_history.append({
+            "source_level_m": source_level,
+            "source_count": final_result.source_count,
+            "error_step_deg": final_error_step,
+            "error_count": final_result.error_count,
+            "JD": final_result.JD, "JR": final_result.JR, "JA": final_result.JA,
+            "relchg_D": rel_d, "relchg_R": rel_r, "relchg_A": rel_a,
+            "JD_monotone": source_monotone["JD"], "JR_monotone": source_monotone["JR"],
+            "JA_monotone": source_monotone["JA"],
+        })
+        previous_source_result = final_result
+        if source_status != "PASS":
+            continue
+
+        verify_sources = build_Gverify(P1_bound, s1, source_level, final_sources)
+        # Gverify is independent and twice as dense in source space.  The
+        # confirmed final error step is reused, as explicitly allowed by v2.1.
+        verify_error_step = final_error_step
+        verify_result = evaluate_candidate_resolution(
+            s2, s1, P1_bound, verify_sources, verify_error_step, cfg, certificate=certificate
+        )
+        previous_error_record = level_error_records[-2]
+        error_est_d = max(cfg.tolerances.eps_cover, abs(final_result.JD - previous_error_record["JD"]))
+        error_est_r = max(cfg.tolerances.eps_mec, abs(final_result.JR - previous_error_record["JR"]))
+        source_est_d = max(cfg.tolerances.eps_cover, abs(final_result.JD - source_history[-2]["JD"]))
+        source_est_r = max(cfg.tolerances.eps_mec, abs(final_result.JR - source_history[-2]["JR"]))
+        estimated_d, estimated_r = error_est_d + source_est_d, error_est_r + source_est_r
+        max_receive_violation = max((receive_violation(s2, item.G, s1) for item in verify_sources), default=-math.inf)
+        verify_d_ok = verify_result.JD <= final_result.JD + estimated_d
+        verify_r_ok = verify_result.JR <= final_result.JR + estimated_r
+        receive_ok = certificate["status"] != "CERTIFIED_STRICT" or max_receive_violation <= certificate["eps_rec_m"]
+        gverify_report = {
+            "status": "PASS" if verify_d_ok and verify_r_ok and receive_ok else "GVERIFY_FAIL",
+            "sample_set": "Gverify",
+            "source_step_m": source_level / 2.0,
+            "source_count": verify_result.source_count,
+            "error_step_deg": verify_error_step,
+            "error_count": verify_result.error_count,
+            "JD_verify": verify_result.JD, "JR_verify": verify_result.JR, "JA_verify": verify_result.JA,
+            "JD_final": final_result.JD, "JR_final": final_result.JR, "JA_final": final_result.JA,
+            "estimated_error_D": estimated_d, "estimated_error_R": estimated_r,
+            "JD_check": verify_d_ok, "JR_check": verify_r_ok,
+            "max_receive_violation_m": max_receive_violation,
+            "strict_receive_check": receive_ok,
+            "independent_coordinate_overlap": len({_source_key(x.G) for x in verify_sources} & {_source_key(x.G) for x in final_sources}),
+        }
+        if gverify_report["status"] == "PASS":
+            break
+        warnings.append("GVERIFY_FAIL")
+        source_status = "UNRESOLVED"
+
+    assert final_result is not None
+    overall_pass = (
+        certificate["status"] != "UNRESOLVED"
+        and source_status == "PASS"
+        and error_status == "PASS"
+        and gverify_report is not None
+        and gverify_report["status"] == "PASS"
+    )
+    if overall_pass:
+        final_result.official20 = final_result.JR + EPS_MEC <= OFFICIAL_CLEAR_RADIUS_M
+        final_result.operational17 = final_result.JR + EPS_MEC <= OPERATIONAL_CLEAR_RADIUS_M
+        final_result.evaluation_status = "CONVERGED"
+    else:
+        final_result.evaluation_status = "UNRESOLVED"
+    replay = {
+        metric: replay_worst_scenario(worst, P1_bound, s2, cfg)
+        for metric, worst in final_result.worst_scenarios.items()
+    }
+    if any(item["status"] != "PASS" for item in replay.values()):
+        warnings.append("WORST_REPLAY_FAIL")
+        overall_pass = False
+    return {
+        "status": "PASS" if overall_pass else "UNRESOLVED",
+        "wording": "场景加密后的收敛数值最坏值",
+        "candidate": final_result,
+        "certificate": certificate,
+        "eps_rec_m": certificate["eps_rec_m"],
+        "eps_rec_source": certificate["eps_rec_source"],
+        "strict_certificate_threshold_provisional": True,
+        "source_convergence": source_status,
+        "error_convergence": error_status,
+        "source_history": source_history,
+        "error_history": error_history,
+        "gverify": gverify_report,
+        "replay": replay,
+        "warnings": sorted(set(warnings)),
+    }
 
 
 def _dominates(a: CandidateResult, b: CandidateResult, epsD: float, epsR: float, epsT: float) -> bool:
@@ -556,26 +1005,30 @@ def validate_solution(candidate: CandidateResult | Mapping[str, object], config:
             failures.append("JR_below_JD_over_2")
         if radius > diameter / math.sqrt(3.0) + cfg.tolerances.eps_mec:
             failures.append("JR_above_JD_over_sqrt3")
-    if data.get("official20") != (radius is not None and radius + EPS_MEC <= 20.0):
+    if data.get("official20") is not None and data.get("official20") != (radius is not None and radius + EPS_MEC <= 20.0):
         failures.append("official20_mismatch")
-    if data.get("operational17") != (radius is not None and radius + EPS_MEC <= 17.0):
+    if data.get("operational17") is not None and data.get("operational17") != (radius is not None and radius + EPS_MEC <= 17.0):
         failures.append("operational17_mismatch")
+    if data.get("official20_provisional") is not None and data.get("official20_provisional") != (radius is not None and radius + EPS_MEC <= 20.0):
+        failures.append("official20_provisional_mismatch")
+    if data.get("operational17_provisional") is not None and data.get("operational17_provisional") != (radius is not None and radius + EPS_MEC <= 17.0):
+        failures.append("operational17_provisional_mismatch")
     return {"valid": not failures, "failures": failures}
 
 
 def solve_q2(S1: Sequence[float], theta1_hat_deg: float, config: Optional[Q2Config] = None) -> dict:
-    """Build the formal Q2 domain; M4--M6 search remains intentionally pending."""
+    """Build the formal Q2 domain; the M4 engine requires an explicit S2."""
 
     cfg = config or Q2Config()
     p1 = build_P1_bound(S1, theta1_hat_deg, cfg)
     return Q2Result(
-        status="M1_M3_IMPLEMENTED",
+        status="M1_M4_COMPONENTS_IMPLEMENTED",
         model_version="Q2-robust-selection-v2.1",
         P1=p1,
         selected_strict=None,
         diagnostics={
-            "milestones_complete": ["M1", "M2", "M3"],
-            "pending": ["M4", "M5", "M6"],
+            "milestones_complete": ["M1", "M2", "M3", "M4"],
+            "pending": ["M5", "M6"],
             "geometry_dependency": "Q1-localization-v1 VERIFIED",
             "continuous_strict_certificate": "triangle-cell 2-Lipschitz branch-and-bound",
             "eps_rec_m": _certificate_epsilon(cfg)[0],
@@ -589,5 +1042,7 @@ __all__ = [
     "Q2Config", "SourceScenario", "CandidateResult", "WorstScenario", "Q2Result",
     "bearing", "wrap_pi", "build_P1_bound", "physical_filter", "receive_floor",
     "receive_violation", "certified_strict", "make_P2", "fim_order_score",
-    "evaluate_candidate", "pareto_front", "select_best", "validate_solution", "solve_q2",
+    "build_Gext", "build_Gverify", "build_error_grid", "relchg",
+    "evaluate_candidate_resolution", "evaluate_candidate", "evaluate_candidate_nested",
+    "replay_worst_scenario", "pareto_front", "select_best", "validate_solution", "solve_q2",
 ]
