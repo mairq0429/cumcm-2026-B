@@ -2,7 +2,7 @@
 
 ## Q1
 
-- 对应 MODEL_SPEC 版本：Q1-set-membership-v1（DERIVED）
+- 对应 MODEL_SPEC 版本：Q1-set-membership-v1（VERIFIED）
 - 源代码文件：B_code/src/q1_localization.py
 - 公开主函数：q1_localize(observations, *, tolerances=DEFAULT_TOLERANCES, circle_polygon_sides=720) -> dict
 - 输入：observations 为若干 {"x": float, "y": float, "theta_deg": float}；正常生产计算保留固定默认 N=720，circle_polygon_sides 仅用于收敛试验。
@@ -16,7 +16,9 @@
 - 测试文件：B_code/tests/test_q1_localization.py
 - 测试入口：python -m unittest discover -s B_code/tests -p "test_*.py" -v
 - 算法版本：Q1-localization-v1
-- 状态：CODED=YES, TESTED=YES, VERIFIED=NO
+- 状态：CODED=YES, TESTED=YES, VERIFIED=YES
+- INDEPENDENT_VERIFICATION=PASS
+- MODEL_CODE_CONSISTENCY=PASS
 
 ### Q1 -> Q3 integration contract
 

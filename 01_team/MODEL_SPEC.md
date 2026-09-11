@@ -4,7 +4,7 @@
 
 ## Q1
 
-- Status：DERIVED
+- Status：VERIFIED
 - Version：Q1-set-membership-v1（2026-09-11）
 - Inputs：观测序列 S_i=(x_i,y_i)、测得示向角 theta_i（角度制）。
 - Outputs：目标可行区域 P_m、区域类型、面积、直径及端点、指定直径圆覆盖结果、最小包围圆（MEC）、光学保证与带安全裕度的可清除判定，以及异常诊断。
@@ -14,7 +14,7 @@
 - Algorithm：用两个线性半平面表示每个角楔；用外切正 720 边形保守表示目标圆；逐半平面 Sutherland-Hodgman 裁剪；确定性增量算法求 MEC。共线点按点到直线距离不超过 EPS_COLLINEAR 且位于线段之间删除；裁剪近似平行判据使用 EPS_PARALLEL；旋转卡壳面积比较使用 EPS_AREA2，并以暴力法按 EPS_DIAMETER_REL 交叉验证。clearable=(R_MEC+EPS_MEC<=17 m)，within_optical_guarantee=(R_MEC+EPS_MEC<=20 m)，exists_diameter_cover_circle=|R_MEC-U_D/2|<=EPS_MEC。原始区域为空时，在半角小于 90 degree 的范围内二分搜索最小统一角松弛。
 - Validation：角楔边界/跨 0 degree、外切目标域、正常/近平行/退化/异常案例、直径双算法、直径圆反例、MEC/Jung 界、1000 组 Monte Carlo 真源包含、逐观测单调收缩、N=360/720/1440 收敛与容差敏感性试验。
 - References：本轮收到的“Q1 有界角误差集合成员定位模型”最终实现规格；官方来源仍按 SOURCE_OF_TRUTH.md 的优先级由团队后续交叉核验。
-- Last Verified By：待填写
+- Last Verified By：M + C（model-code consistency review, 2026-09-11）
 
 ## Q2
 
