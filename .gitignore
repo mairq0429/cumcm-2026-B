@@ -39,3 +39,6 @@ Thumbs.db
 # Large/raw logs
 *.log
 /¹Ù·½²ÄÁÏ/
+
+# Local Tencent Docs upload staging area
+/07_tencent_docs_upload/
