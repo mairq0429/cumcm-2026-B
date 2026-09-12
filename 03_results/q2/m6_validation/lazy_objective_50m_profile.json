@@ -1,0 +1,19 @@
+{
+  "artifact_status": "VALIDATION / NOT_FINAL_Q2_RESULT",
+  "benchmark": "M6A.2_LAZY_OBJECTIVE_50M_ONLY",
+  "strict_objective_candidates": 1184,
+  "cheap_screen_calls": 8,
+  "cheap_screen_rejected": 2,
+  "cheap_screen_inconclusive": 6,
+  "full_M4_calls": 6,
+  "C20_found": true,
+  "best_T2": 15.811388300841898,
+  "pruned_after_C20": 1176,
+  "runtime_certificate_s": 1.2936031999997795,
+  "runtime_cheap_screen_s": 0.0776788999864948,
+  "runtime_full_M4_s": 8.127668100009032,
+  "runtime_total_s": 9.5448788000067,
+  "legacy_full_M4_estimate": 1184,
+  "mathematical_standards_changed": false,
+  "warnings": []
+}

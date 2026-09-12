@@ -184,6 +184,10 @@ class CandidateCell:
     objective_refinement: bool = False
     center_in_move_domain: bool = True
     omega_boundary_flag: bool = False
+    receive_region_status: str = "UNCLASSIFIED"
+    objective_status: str = "NOT_EVALUATED"
+    cheap_JR_sample: Optional[float] = None
+    cheap_scenario_count: int = 0
 
     def to_record(self) -> dict:
         candidate = None if self.m4_result is None else self.m4_result.get("candidate")
@@ -216,6 +220,10 @@ class CandidateCell:
             "objective_refinement": self.objective_refinement,
             "center_in_move_domain": self.center_in_move_domain,
             "omega_boundary_flag": self.omega_boundary_flag,
+            "receive_region_status": self.receive_region_status,
+            "objective_status": self.objective_status,
+            "cheap_JR_sample": self.cheap_JR_sample,
+            "cheap_scenario_count": self.cheap_scenario_count,
         }
 
 
@@ -1996,7 +2004,11 @@ def _mark_boundaries(cells: Sequence[CandidateCell]) -> None:
 
 
 def _strict_components(cells: Sequence[CandidateCell]) -> list[list[CandidateCell]]:
-    strict = {(cell.ix, cell.iy): cell for cell in cells if cell.status == "STRICT_INTERIOR"}
+    strict = {
+        (cell.ix, cell.iy): cell for cell in cells
+        if cell.certificate is not None
+        and cell.certificate.get("status") == "CERTIFIED_STRICT"
+    }
     components = []
     while strict:
         start_key = min(strict)
@@ -2011,6 +2023,35 @@ def _strict_components(cells: Sequence[CandidateCell]) -> list[list[CandidateCel
                     stack.append(neighbor)
         components.append(sorted(component, key=lambda item: item.cell_id))
     return components
+
+
+def screen_candidate_c20(
+    S2: Sequence[float], S1: Sequence[float],
+    P1_bound: Sequence[Point] | Mapping[str, object],
+    source_scenarios: Iterable[SourceScenario],
+    config: Optional[Q2Config] = None,
+) -> dict:
+    """Cheap one-sided C20 rejection using physical Gext and {-1,0,+1} errors."""
+
+    cfg = config or Q2Config()
+    maximum = -math.inf
+    count = 0
+    for scenario in source_scenarios:
+        if not physical_filter(scenario.G, S1):
+            continue
+        errors = (0.0,) if _distance(S2, scenario.G) <= NEAR_RADIUS_M + cfg.tolerances.eps_geo else (-1.0, 0.0, 1.0)
+        for error in errors:
+            result = make_P2(P1_bound, S2, scenario.G, error, config=cfg)
+            radius = result.get("mec_radius")
+            if radius is not None:
+                maximum = max(maximum, float(radius))
+            count += 1
+    status = (
+        "PROVEN_NOT_C20"
+        if maximum > -math.inf and maximum + EPS_MEC > OFFICIAL_CLEAR_RADIUS_M
+        else "INCONCLUSIVE"
+    )
+    return {"screen_status": status, "sample_JR": maximum, "scenario_count": count}
 
 
 def select_from_evaluated(
@@ -2152,6 +2193,8 @@ def search_strict_candidates(
     certificate_batch_engine=None,
     m4_fn=evaluate_candidate_nested,
     pass_certificate_to_m4: bool = False,
+    stop_after_level_m: Optional[float] = None,
+    lazy_objective: bool = True,
     output_dir: Optional[str | Path] = None,
 ) -> dict:
     """Run the M5A 50->20->5 m point-certified strict search."""
@@ -2170,9 +2213,15 @@ def search_strict_candidates(
         p1, s1, cfg.source_step_m
     )
     eps_rec_cert, eps_source = _certificate_precision(cfg)
-    levels = tuple(float(level) for level in cfg.candidate_steps_m)
-    if levels != (50.0, 20.0, 5.0):
+    configured_levels = tuple(float(level) for level in cfg.candidate_steps_m)
+    if configured_levels != (50.0, 20.0, 5.0):
         raise ValueError("M5A candidate_steps_m must be exactly (50,20,5)")
+    levels = configured_levels
+    if stop_after_level_m is not None:
+        stop = float(stop_after_level_m)
+        if stop not in configured_levels:
+            raise ValueError("stop_after_level_m must be one of 50, 20, 5")
+        levels = configured_levels[: configured_levels.index(stop) + 1]
     region_cells: list[CandidateCell] = []
     objective_cells: list[CandidateCell] = []
     level_diagnostics = []
@@ -2196,9 +2245,12 @@ def search_strict_candidates(
             "certificate_unresolved": 0, "M4_evaluated": 0,
             "M4_pass": 0, "M4_unresolved": 0, "lmin_excluded": 0,
             "cell_exclusion_certified": 0,
+            "runtime_certificate_s": 0.0, "runtime_cheap_screen_s": 0.0,
+            "runtime_full_M4_s": 0.0,
         }
         cell_half_diagonal = math.sqrt(2.0) * level / 2.0
         batch_certificates = {}
+        certificate_started = time.perf_counter()
         if certificate_batch_engine is not None:
             batch_points = []
             for cell in cells:
@@ -2247,6 +2299,7 @@ def search_strict_candidates(
                     counterexample, counterexample_margin = scenario.G, screening["margin_m"]
             if counterexample is not None:
                 cell.status = "CERTIFIED_VIOLATION_SAMPLE"
+                cell.receive_region_status = "CERTIFIED_VIOLATION"
                 cell.sample_counterexample = counterexample
                 cell.certificate = {
                     "status": "CERTIFIED_VIOLATION_SAMPLE", "certified": True,
@@ -2268,6 +2321,7 @@ def search_strict_candidates(
             cell.certificate = certificate
             if certificate["status"] == "CERTIFIED_VIOLATION":
                 cell.status = "CERTIFIED_VIOLATION"
+                cell.receive_region_status = "CERTIFIED_VIOLATION"
                 counters["certificate_violation"] += 1
                 counterexample = certificate.get("counterexample")
                 if certificate.get("whole_cell_status") == "WHOLE_CELL_CERTIFIED_VIOLATION":
@@ -2282,35 +2336,88 @@ def search_strict_candidates(
                     cell.boundary_flag = True
             elif certificate["status"] == "UNRESOLVED":
                 cell.status = "BOUNDARY_OR_UNRESOLVED"
+                cell.receive_region_status = "UNRESOLVED"
                 counters["certificate_unresolved"] += 1
             elif certificate["status"] == "UNCERTAIN_BOUNDARY":
                 cell.status = "BOUNDARY_OR_UNRESOLVED"
+                cell.receive_region_status = "UNCERTAIN_BOUNDARY"
                 counters["certificate_uncertain_boundary"] += 1
             elif certificate["status"] == "CERTIFIED_STRICT":
                 counters["certificate_strict"] += 1
+                cell.receive_region_status = "CERTIFIED_STRICT"
                 if certificate.get("whole_cell_status") == "WHOLE_CELL_CERTIFIED_STRICT":
                     cell.whole_cell_strict_certified = True
-                if cell.objective_refinement:
-                    counters["M4_evaluated"] += 1
-                    m4_result = (
-                        m4_fn(cell.center, s1, p1, cfg, certificate_override=certificate)
-                        if pass_certificate_to_m4 else m4_fn(cell.center, s1, p1, cfg)
-                    )
-                    cell.m4_result = m4_result
-                    if m4_result["status"] == "PASS":
-                        cell.status = "STRICT_INTERIOR"
-                        counters["M4_pass"] += 1
-                    else:
-                        cell.status = "EVALUATION_UNRESOLVED"
-                        counters["M4_unresolved"] += 1
-                else:
-                    cell.status = "POINT_CERTIFIED_STRICT"
+                cell.status = "POINT_CERTIFIED_STRICT"
             else:
                 raise ValueError(f"unknown certificate status {certificate['status']!r}")
+        counters["runtime_certificate_s"] = time.perf_counter() - certificate_started
+
+        # Objective evaluation is deliberately lazy and cannot alter receive-region classification.
+        objective_queue = sorted(
+            (
+                cell for cell in cells
+                if cell.objective_refinement and cell.receive_region_status == "CERTIFIED_STRICT"
+                and cell.center_in_move_domain and _distance(cell.center, s1) >= cfg.lmin_m
+            ),
+            key=lambda cell: (_distance(cell.center, s1) / SPEED_MPS, cell.center[0], cell.center[1]),
+        )
+        counters.update({
+            "strict_objective_candidates": len(objective_queue),
+            "cheap_screen_calls": 0, "cheap_screen_rejected": 0,
+            "cheap_screen_inconclusive": 0, "pruned_after_C20": 0,
+        })
+        best_c20_t2 = None
+
+        def run_full_m4(cell: CandidateCell) -> None:
+            nonlocal best_c20_t2
+            counters["M4_evaluated"] += 1
+            m4_started = time.perf_counter()
+            result = (
+                m4_fn(cell.center, s1, p1, cfg, certificate_override=cell.certificate)
+                if pass_certificate_to_m4 else m4_fn(cell.center, s1, p1, cfg)
+            )
+            counters["runtime_full_M4_s"] += time.perf_counter() - m4_started
+            cell.m4_result = result
+            if result["status"] == "PASS":
+                cell.objective_status = "M4_PASS"
+                counters["M4_pass"] += 1
+                candidate = result["candidate"]
+                if candidate.official20 is True:
+                    best_c20_t2 = candidate.T2 if best_c20_t2 is None else min(best_c20_t2, candidate.T2)
+            else:
+                cell.objective_status = "M4_UNRESOLVED"
+                counters["M4_unresolved"] += 1
+
+        tie_eps = 1.0e-9
+        for cell in objective_queue:
+            t2 = _distance(cell.center, s1) / SPEED_MPS
+            if lazy_objective and best_c20_t2 is not None and t2 > best_c20_t2 + tie_eps:
+                cell.objective_status = "PRUNED_BY_T2_AFTER_C20"
+                counters["pruned_after_C20"] += 1
+                continue
+            screen_started = time.perf_counter()
+            screen = screen_candidate_c20(cell.center, s1, p1, samples, cfg)
+            counters["runtime_cheap_screen_s"] += time.perf_counter() - screen_started
+            counters["cheap_screen_calls"] += 1
+            cell.cheap_JR_sample = screen["sample_JR"]
+            cell.cheap_scenario_count = screen["scenario_count"]
+            if lazy_objective and screen["screen_status"] == "PROVEN_NOT_C20":
+                cell.objective_status = "C20_SAMPLE_REJECT"
+                counters["cheap_screen_rejected"] += 1
+                continue
+            counters["cheap_screen_inconclusive"] += 1
+            run_full_m4(cell)
+
+        # If the final grid has no C20, the frozen Pareto fallback needs every strict candidate.
+        if level == levels[-1] and best_c20_t2 is None:
+            for cell in objective_queue:
+                if cell.m4_result is None:
+                    run_full_m4(cell)
         _mark_boundaries(cells)
         components = _strict_components(cells)
         c20_cells = [
-            cell for cell in cells if cell.status == "STRICT_INTERIOR"
+            cell for cell in cells if cell.m4_result is not None
+            and cell.m4_result["status"] == "PASS"
             and cell.m4_result["candidate"].official20 is True
         ]
         selected_component_indices: set[int] = set()
@@ -2346,17 +2453,10 @@ def search_strict_candidates(
                 objective_parents = [
                     cell for cell in cells
                     if cell.objective_refinement and not cell.cell_exclusion_certified
-                    and (
-                        cell.cell_id in selected_ids
-                        or (
-                            _cell_class(cell) != "strict"
-                            and max(
-                                0.0,
-                                _distance(cell.center, s1) - cell_half_diagonal,
-                            ) / SPEED_MPS
-                            <= best_t2 + 1.0e-3 * max(1.0, best_t2)
-                        )
-                    )
+                    and max(
+                        0.0,
+                        _distance(cell.center, s1) - cell_half_diagonal,
+                    ) / SPEED_MPS <= best_t2 + 1.0e-3 * max(1.0, best_t2)
                 ]
             else:
                 # Without C20, retain every potentially Pareto-competitive branch.
@@ -2368,7 +2468,7 @@ def search_strict_candidates(
     final_cells = [cell for cell in objective_cells if cell.level_m == levels[-1]]
     evaluated = [
         cell.m4_result["candidate"] for cell in final_cells
-        if cell.status == "STRICT_INTERIOR" and cell.m4_result is not None
+        if cell.m4_result is not None and cell.m4_result["status"] == "PASS"
     ]
     selection = select_from_evaluated(evaluated)
     result = {
@@ -2543,6 +2643,7 @@ __all__ = [
     "bearing", "wrap_pi", "build_P1_bound", "physical_filter", "receive_floor",
     "receive_violation", "certified_strict", "make_P2", "fim_order_score",
     "classify_receive_certificate_bounds", "sample_receive_screen",
+    "screen_candidate_c20",
     "strict_gverify_receive_status",
     "build_Gext", "build_Gverify", "build_error_grid", "relchg",
     "evaluate_candidate_resolution", "evaluate_candidate", "evaluate_candidate_nested",

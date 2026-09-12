@@ -453,6 +453,45 @@ def benchmark_coarse_50m(
     return profile
 
 
+def benchmark_lazy_objective_50m(
+    S1: Sequence[float] = (1700.0, 0.0), theta1_hat_deg: float = 0.0,
+    config: Optional[q2.Q2Config] = None,
+) -> dict:
+    """Run the formal 1440/50 m certificate plus lazy-objective benchmark only."""
+
+    cfg = config or q2.Q2Config()
+    if cfg.circle_sides != 1440 or cfg.omega_move is not None:
+        raise ValueError("benchmark requires circle_sides=1440 and Omega_move=None")
+    p1 = q2.build_P1_bound(S1, theta1_hat_deg, cfg)
+    engine = StrictCertificateAccelerator(PhysicalCertificateTree(p1, S1, cfg), cfg)
+    started = time.perf_counter()
+    result = q2.search_strict_candidates(
+        S1, theta1_hat_deg, cfg, P1_bound=p1,
+        certificate_batch_engine=engine, pass_certificate_to_m4=True,
+        stop_after_level_m=50.0, lazy_objective=True,
+    )
+    diagnostics = result["level_diagnostics"][0]
+    selected = result["selection"]["selected_strict"]
+    return {
+        "artifact_status": "VALIDATION / NOT_FINAL_Q2_RESULT",
+        "benchmark": "M6A.2_LAZY_OBJECTIVE_50M_ONLY",
+        "strict_objective_candidates": diagnostics["strict_objective_candidates"],
+        "cheap_screen_calls": diagnostics["cheap_screen_calls"],
+        "cheap_screen_rejected": diagnostics["cheap_screen_rejected"],
+        "cheap_screen_inconclusive": diagnostics["cheap_screen_inconclusive"],
+        "full_M4_calls": diagnostics["M4_evaluated"],
+        "C20_found": bool(result["selection"]["C20"]),
+        "best_T2": None if selected is None else selected.T2,
+        "pruned_after_C20": diagnostics["pruned_after_C20"],
+        "runtime_certificate_s": diagnostics["runtime_certificate_s"],
+        "runtime_cheap_screen_s": diagnostics["runtime_cheap_screen_s"],
+        "runtime_full_M4_s": diagnostics["runtime_full_M4_s"],
+        "runtime_total_s": time.perf_counter() - started,
+        "legacy_full_M4_estimate": diagnostics["strict_objective_candidates"],
+        "warnings": [],
+    }
+
+
 def run_coarse_benchmark_to_file(output_path: str | Path) -> dict:
     """Explicit non-unittest entry point for the prescribed 50 m benchmark."""
 

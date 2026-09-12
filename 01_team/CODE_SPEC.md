@@ -54,6 +54,7 @@
 - M6A.1 acceleration：`B_code/src/q2_certificate_acceleration.py` 实现候选空间 1-Lipschitz anchor bounds、deterministic farthest-from-anchor 调度、惰性共享 `PhysicalCertificateTree` 和 `accelerated_certified_strict`。共享树只缓存与 S2 无关的 clipping/center/h/physical samples；每个 S2 的 lower sample values 与 `U_cell=f(Gc;S2)+2h` 均重新计算。`search_strict_candidates` 可注入 batch engine，顺序保持 sample screening→anchor propagation→必要时完整 B&B，并把已证明整格 strict/violation 接入 region refinement；M4 可复用同一合法 certificate，避免重复认证。物理阈值仍严格为 0，`eps_rec_cert_m` 仍只用于跨零区间宽度。
 - M6A.1 benchmark：相同 1440/无 Omega/50 m 条件下，3844 cells 与原 sample 统计完全一致；1190 个待连续认证点仅需 82 次 full certificate，1108 点由 anchor 正式传播，整格 strict 939，unresolved=0。共享树 612 nodes，复用 12782 node evaluations；总耗时约 1.24 s，结果 `PASS`。该 benchmark 不含 20/5 m、2880 或完整 M6A；T12 仍为 `UNRESOLVED`。
 - M6A accelerated rerun：`run_m6a_validation` 默认强制构造 `PhysicalCertificateTree + StrictCertificateAccelerator`，并按 `(circle_sides, eps_rec_cert_m)` 隔离 engine；M4 cache 只复用与 eps/Lmin 无关的几何指标，本次证书字段覆盖缓存结果。1440 完整 50→20→5 代表性全域运行在 300 s watchdog 内仍未完成；3 个粗层 M4 样本分别耗时约 0.789/0.808/0.754 s，表明当前阻塞已转移到对大量粗层 strict objective points 的完整 M4 评价。未启动 2880 或敏感性配置，T12 保持 `UNRESOLVED`。
+- M6A.2 lazy objective：每层先完整完成 receive-region classification，再对 strict objective queue 按 `(T2,x,y)` 调度。`screen_candidate_c20` 只用物理 Gext20 与 `e2={-1,0,+1}` 形成 `JR_sample<=JR` 的单向负证书；只在 `JR_sample+EPS_MEC>20` 时排除 C20。首次完整 M4 得到 C20 后，仅跳过严格更大 T2 的中心；同 T2 候选继续完整评价，下一层父格使用安全 `T2_lower` 与既有 near-optimal tolerance。未评价点保持 receive strict region 身份，Fstrict 不依赖 M4。
 
 ## Q3
 
