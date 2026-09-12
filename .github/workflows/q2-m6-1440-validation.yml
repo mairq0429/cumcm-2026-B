@@ -1,0 +1,39 @@
+name: Q2 M6 1440 validation
+
+on:
+  push:
+    branches:
+      - chatgpt/m6-1440-validation
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run regression suite
+        working-directory: B_code
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Run full 1440 M6 baseline
+        env:
+          PYTHONPATH: B_code/src
+        run: |
+          python - <<'PY'
+          from q2_m6_1440_validation import run_1440_baseline
+          import json
+          result = run_1440_baseline()
+          print(json.dumps(result, ensure_ascii=False, indent=2))
+          if result.get('status') != 'PASS':
+              raise SystemExit(2)
+          PY
+      - name: Upload validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: q2-m6-1440-validation
+          path: 03_results/q2/m6_validation/1440_baseline
+          if-no-files-found: warn
