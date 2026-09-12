@@ -33,7 +33,7 @@
 - Algorithm：圆盘正式用外切正 1440 边形，并同时算内接多边形夹逼；检查 1440→2880 的 area、JD、JR、Fstrict 与选点坐标。严格证书采用三角单元 branch-and-bound：物理合法确定性样本给出 `L_rec`，仍可能与 `P1_phys` 相交的活动/叶单元以 `f(Gc)+2h` 给出上界并聚合为 `U_rec`；`EPS_REC_CERT_M` 只用于判断跨零区间宽度是否已达到认证精度，不改变零物理阈值。误差、源样本和候选网格分别加密；只称“场景加密后的收敛数值最坏值”，不称连续解析全局最大值。
 - Validation：T01--T11 已覆盖 M1--M3；M4 的 T13 独立 `Gverify`、T14 最坏场景 replay、T17 source/error convergence 已覆盖并通过；M5A 的 T15 选择规则与 T16 全链路物理过滤已覆盖并通过；M5B 已完成面积上下界、阈值三态、确定性稠密 oracle、received-subset worst 与独立 Gverify implementation tests。严格证书零阈值专项覆盖微小正反例、微小负上界、跨零窄区间、预算耗尽、M5A 点/整格排除及 Gverify 微小正违反。正式计算前须对 `EPS_REC_CERT_M=1e-4/1e-3/1e-2 m` 做敏感性检查。T12 仍为 PARTIAL/NOT_RUN，因为 1440→2880 与 candidate grid 整体离散收敛属于 M6。最终仍需圆盘、source、error、candidate 四类收敛及 `Lmin=20/50/100/150 m` 敏感性；若明显变化发出 `LMIN_SENSITIVE`。
 - References：《B题第二问鲁棒选点模型编程规格书 v2.1 建模确认清单冻结版》。
-- Last Verified By：尚未验证；当前实现已完成 M1--M5B，严格接收证书语义已 MODEL_ALIGNED，M6 及最终交叉验证待完成。
+- Last Verified By：尚未验证；当前实现已完成 M1--M5B，严格接收证书语义已 MODEL_ALIGNED；M6A 判定框架已实现，但代表性全域 1440 基线因有界运行窗口耗尽而保持 UNRESOLVED，M6 及最终交叉验证未完成。
 
 ## Q3
 

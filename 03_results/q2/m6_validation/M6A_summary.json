@@ -1,0 +1,42 @@
+{
+  "validation_status": "UNRESOLVED",
+  "representative_case": {
+    "S1": [
+      1700.0,
+      0.0
+    ],
+    "theta1_hat_deg": 0.0,
+    "omega_move": null,
+    "case_type": "representative_case"
+  },
+  "runtime_profile": {
+    "cutoff_s": 300.0,
+    "cutoff_reason": "operator_bounded_runtime_stop",
+    "circle_sides_started": 1440,
+    "circle_1440_status": "ABORTED_RUNTIME_LIMIT",
+    "circle_2880_status": "NOT_RUN",
+    "search_box": [
+      200.0,
+      -1501.7455064928217,
+      3300.0,
+      1501.7455064928217
+    ],
+    "coarse_step_m": 50.0,
+    "coarse_cells": 3844,
+    "Gext_count": 18,
+    "sample_point_violations": 2654,
+    "whole_cell_exclusions": 2572,
+    "certificate_required": 1190,
+    "sample_screen_runtime_s": 0.2680938000048627,
+    "standards_reduced": false
+  },
+  "warnings": [
+    "FULL_DOMAIN_RUNTIME_LIMIT_EXCEEDED"
+  ],
+  "scope": "representative case; method validation, not a unique problem answer",
+  "M6A_status": "UNRESOLVED",
+  "T12_status": "UNRESOLVED",
+  "M6B_status": "BLOCKED_PENDING_M6A",
+  "entry_to_M6B": false,
+  "artifact_status": "VALIDATION / NOT_FINAL_Q2_RESULT"
+}

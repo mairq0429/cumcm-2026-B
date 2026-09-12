@@ -50,6 +50,7 @@
 - 测试文件：B_code/tests/test_q2_selection.py
 - 算法版本：Q2-selection-v2.1（开发中，当前完成 M1--M5B）
 - 状态：CODED=NO, TESTED=NO, VERIFIED=NO；M1--M5B COMPLETE，strict certificate semantics=MODEL_ALIGNED；T01--T11、T13--T17 中 T13/T14/T15/T16/T17 及 M5B implementation tests 已通过；T12 保持 PARTIAL/NOT_RUN。M6、整体离散收敛、`eps_rec_cert_m=1e-4/1e-3/1e-2` 正式全域敏感性与最终交叉验证未完成，不得自行标记 VERIFIED。
+- M6A validation：`B_code/src/q2_m6_validation.py` 提供 circle/candidate/eps-cert/Lmin 判定、T12 门控聚合、风险阈值未决保持和八项 validation 输出。代表性全搜索盒 `S1=(1700,0), theta1=0 degree` 的 1440 基线在 300 s 有界运行窗口内未完成；未降低任何标准，T12 与 M6A 保持 `UNRESOLVED`，M6B 不得开始。runtime profile 位于 `03_results/q2/m6_validation/`。
 
 ## Q3
 
