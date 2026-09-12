@@ -1935,7 +1935,7 @@ def integrate_qarea(
     return provisional
 
 
-def _candidate_cells(
+def _candidate_cells_legacy(
     bounds: Sequence[float],
     level_m: float,
     omega_move: Optional[Sequence[Point]],
@@ -1989,6 +1989,119 @@ def _candidate_cells(
                 omega_boundary_flag=not center_in_domain,
             ))
     return cells
+
+
+def _candidate_cells_sparse(
+    bounds: Sequence[float],
+    level_m: float,
+    omega_move: Optional[Sequence[Point]],
+    region_parents: Optional[Sequence[CandidateCell]],
+    objective_parents: Optional[Sequence[CandidateCell]],
+    tolerances: NumericalTolerances,
+    diagnostics: Optional[dict] = None,
+) -> list[CandidateCell]:
+    """Parent-driven candidate generation exactly equivalent to the legacy scan."""
+
+    started = time.perf_counter()
+    lo_x, lo_y, hi_x, hi_y = map(float, bounds)
+    ix0, ix1 = math.floor(lo_x / level_m), math.ceil(hi_x / level_m) - 1
+    iy0, iy1 = math.floor(lo_y / level_m), math.ceil(hi_y / level_m) - 1
+    global_size = max(0, ix1 - ix0 + 1) * max(0, iy1 - iy0 + 1)
+    if region_parents is None:
+        result = _candidate_cells_legacy(
+            bounds, level_m, omega_move, region_parents, objective_parents, tolerances
+        )
+        if diagnostics is not None:
+            diagnostics.update({
+                "generation_method": "legacy_global_first_level",
+                "global_grid_size_if_legacy": global_size,
+                "region_parent_count": 0,
+                "objective_parent_count": 0 if objective_parents is None else len(objective_parents),
+                "generated_index_candidates": global_size,
+                "unique_region_indices": len(result),
+                "bbox_intersection_checks": 0,
+                "omega_checks": global_size if omega_move is not None else 0,
+                "runtime_s": time.perf_counter() - started,
+            })
+        return result
+
+    checks = generated = omega_checks = 0
+
+    def envelope(parent: CandidateCell):
+        nonlocal generated
+        px0, py0, px1, py1 = parent.bbox
+        ex = tolerances.eps_geo
+        ax0 = max(ix0, math.floor((px0 - ex) / level_m) - 1)
+        ax1 = min(ix1, math.ceil((px1 + ex) / level_m) + 1)
+        ay0 = max(iy0, math.floor((py0 - ex) / level_m) - 1)
+        ay1 = min(iy1, math.ceil((py1 + ex) / level_m) + 1)
+        generated += max(0, ax1 - ax0 + 1) * max(0, ay1 - ay0 + 1)
+        for ix in range(ax0, ax1 + 1):
+            for iy in range(ay0, ay1 + 1):
+                yield ix, iy
+
+    region_membership: dict[tuple[int, int], set[str]] = {}
+    for parent in region_parents:
+        for key in envelope(parent):
+            ix, iy = key
+            bbox = (ix * level_m, iy * level_m, (ix + 1) * level_m, (iy + 1) * level_m)
+            checks += 1
+            if _bbox_intersects(bbox, parent.bbox, tolerances.eps_geo):
+                region_membership.setdefault(key, set()).add(parent.cell_id)
+
+    objective_membership: dict[tuple[int, int], set[str]] = {}
+    if objective_parents is not None:
+        for parent in objective_parents:
+            for key in envelope(parent):
+                if key not in region_membership:
+                    continue
+                ix, iy = key
+                bbox = (ix * level_m, iy * level_m, (ix + 1) * level_m, (iy + 1) * level_m)
+                checks += 1
+                if _bbox_intersects(bbox, parent.bbox, tolerances.eps_geo):
+                    objective_membership.setdefault(key, set()).add(parent.cell_id)
+
+    omega_kind = None if omega_move is None else classify_region(omega_move, tolerances)[0]
+    cells = []
+    for ix, iy in sorted(region_membership):
+        x, y = (ix + 0.5) * level_m, (iy + 0.5) * level_m
+        center = (x, y)
+        bbox = (ix * level_m, iy * level_m, (ix + 1) * level_m, (iy + 1) * level_m)
+        if omega_move is not None:
+            omega_checks += 1
+            if not _cell_intersects_omega(bbox, omega_move, omega_kind, tolerances):
+                continue
+        center_in_bounds = lo_x <= x <= hi_x and lo_y <= y <= hi_y
+        center_in_omega = omega_move is None or point_in_convex_region(
+            center, omega_move, omega_kind, tolerances
+        )
+        center_in_domain = center_in_bounds and center_in_omega
+        objective_ids = tuple(sorted(objective_membership.get((ix, iy), ())))
+        cells.append(CandidateCell(
+            cell_id=f"L{level_m:g}_X{ix}_Y{iy}", level_m=level_m,
+            ix=ix, iy=iy, center=center, bbox=bbox,
+            parent_ids=tuple(sorted(region_membership[(ix, iy)])),
+            objective_parent_ids=objective_ids,
+            objective_refinement=(objective_parents is None or bool(objective_ids)) and center_in_domain,
+            center_in_move_domain=center_in_domain,
+            omega_boundary_flag=not center_in_domain,
+        ))
+    if diagnostics is not None:
+        diagnostics.update({
+            "generation_method": "sparse_parent_driven",
+            "global_grid_size_if_legacy": global_size,
+            "region_parent_count": len(region_parents),
+            "objective_parent_count": 0 if objective_parents is None else len(objective_parents),
+            "generated_index_candidates": generated,
+            "unique_region_indices": len(region_membership),
+            "bbox_intersection_checks": checks,
+            "omega_checks": omega_checks,
+            "runtime_s": time.perf_counter() - started,
+        })
+    return cells
+
+
+_candidate_cells = _candidate_cells_sparse
 
 
 def _mark_boundaries(cells: Sequence[CandidateCell]) -> None:
@@ -2196,6 +2309,7 @@ def search_strict_candidates(
     stop_after_level_m: Optional[float] = None,
     lazy_objective: bool = True,
     level_checkpoint_fn=None,
+    region_only: bool = False,
     output_dir: Optional[str | Path] = None,
 ) -> dict:
     """Run the M5A 50->20->5 m point-certified strict search."""
@@ -2233,8 +2347,10 @@ def search_strict_candidates(
 
     for level in levels:
         level_started = time.perf_counter()
+        generation_diagnostics = {}
         cells = _candidate_cells(
-            bounds, level, omega, region_parents, objective_parents, cfg.tolerances
+            bounds, level, omega, region_parents, objective_parents, cfg.tolerances,
+            diagnostics=generation_diagnostics,
         )
         counters = {
             "candidate_total": len(cells), "sample_rejected": 0,
@@ -2248,6 +2364,7 @@ def search_strict_candidates(
             "cell_exclusion_certified": 0,
             "runtime_certificate_s": 0.0, "runtime_cheap_screen_s": 0.0,
             "runtime_full_M4_s": 0.0,
+            "candidate_generation": generation_diagnostics,
         }
         cell_half_diagonal = math.sqrt(2.0) * level / 2.0
         batch_certificates = {}
@@ -2357,7 +2474,7 @@ def search_strict_candidates(
         objective_queue = sorted(
             (
                 cell for cell in cells
-                if cell.objective_refinement and cell.receive_region_status == "CERTIFIED_STRICT"
+                if not region_only and cell.objective_refinement and cell.receive_region_status == "CERTIFIED_STRICT"
                 and cell.center_in_move_domain and _distance(cell.center, s1) >= cfg.lmin_m
             ),
             key=lambda cell: (_distance(cell.center, s1) / SPEED_MPS, cell.center[0], cell.center[1]),

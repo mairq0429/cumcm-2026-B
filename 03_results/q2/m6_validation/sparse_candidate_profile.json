@@ -1,0 +1,29 @@
+{
+  "artifact_status": "VALIDATION / NOT_FINAL_Q2_RESULT",
+  "benchmark": "M6A.4_SPARSE_CANDIDATE_GENERATION",
+  "sparse_generation_status": "SPARSE_GENERATION_PASS",
+  "overall_status": "REGION_CLASSIFICATION_RUNTIME_UNRESOLVED",
+  "circle_sides": 1440,
+  "level_m": 5.0,
+  "global_grid_size_if_legacy": 373240,
+  "region_parent_count": 991,
+  "objective_parent_count": 2605,
+  "legacy_estimated_bbox_comparisons": 1342171040,
+  "generated_index_candidates": 275896,
+  "unique_region_indices": 17292,
+  "fine_cell_count": 17292,
+  "sparse_bbox_intersection_checks": 125670,
+  "omega_checks": 0,
+  "candidate_generation_runtime_s": 0.5118583000003127,
+  "synthetic_legacy_sparse_equivalence": "PASS",
+  "missing_cells": 0,
+  "extra_cells": 0,
+  "region_only_classification": {
+    "status": "UNRESOLVED",
+    "runtime_s": 300.0,
+    "reason": "REGION_CLASSIFICATION_RUNTIME_LIMIT_EXCEEDED",
+    "M4_calls": 0
+  },
+  "mathematical_standards_changed": false,
+  "warnings": ["REGION_CLASSIFICATION_RUNTIME_LIMIT_EXCEEDED"]
+}

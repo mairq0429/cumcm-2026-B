@@ -56,6 +56,7 @@
 - M6A accelerated rerun：`run_m6a_validation` 默认强制构造 `PhysicalCertificateTree + StrictCertificateAccelerator`，并按 `(circle_sides, eps_rec_cert_m)` 隔离 engine；M4 cache 只复用与 eps/Lmin 无关的几何指标，本次证书字段覆盖缓存结果。1440 完整 50→20→5 代表性全域运行在 300 s watchdog 内仍未完成；3 个粗层 M4 样本分别耗时约 0.789/0.808/0.754 s，表明当前阻塞已转移到对大量粗层 strict objective points 的完整 M4 评价。未启动 2880 或敏感性配置，T12 保持 `UNRESOLVED`。
 - M6A.2 lazy objective：每层先完整完成 receive-region classification，再对 strict objective queue 按 `(T2,x,y)` 调度。`screen_candidate_c20` 只用物理 Gext20 与 `e2={-1,0,+1}` 形成 `JR_sample<=JR` 的单向负证书；只在 `JR_sample+EPS_MEC>20` 时排除 C20。首次完整 M4 得到 C20 后，仅跳过严格更大 T2 的中心；同 T2 候选继续完整评价，下一层父格使用安全 `T2_lower` 与既有 near-optimal tolerance。未评价点保持 receive strict region 身份，Fstrict 不依赖 M4。
 - M6A.3 1440 baseline runner：`q2_m6_1440_validation.py` 通过 level callback 在 50/20/5 每层完成后立即写 checkpoint，并要求最终选择仅来自 5 m 完整 M4 PASS。正式代表性运行的 50 m 与 20 m 层完成；5 m 层达到 300 s watchdog 未完成，故 baseline/T12 保持 `UNRESOLVED`，不启动 2880。
+- M6A.4 sparse candidate generation：生产路径使用 parent-bbox 驱动的 `_candidate_cells_sparse`，legacy 全域扫描保留为测试 oracle。非整数 50→20、20→5、多 parent IDs、objective IDs 与 Omega boundary 均逐字段等价。正式 5 m 从 373240 全局格×parents 的约 13.42 亿检查降至 125670 次 bbox checks，生成 17292 cells 约 0.512 s；region-only certificate classification 仍超过 300 s，状态 `REGION_CLASSIFICATION_RUNTIME_UNRESOLVED`。
 
 ## Q3
 

@@ -14,6 +14,7 @@
 - Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M5B 已实现，strict certificate 已 MODEL_ALIGNED。M6A.1 anchor propagation + shared physical tree 已通过 50 m benchmark（1190→82 full calls，约 1.24 s）。正式 M6A 已按加速路径重启，但 1440 完整 50→20→5 配置在 300 s watchdog 内未完成；新瓶颈为粗层大量完整 M4 评价。T12 仍 UNRESOLVED，M6B 不得开始。
 - Q2 M6A.2 lazy objective benchmark：1440/50 m 全域的 1184 strict objective candidates 仅调用 6 次完整 M4，2 次由 cheap C20 下界拒绝，1176 次在已有 C20 后按严格 T2 次序跳过；总耗时约 9.54 s。该结果只覆盖 50 m benchmark，尚未重跑完整 M6A，T12 仍 UNRESOLVED。
 - Q2 M6A.3：1440 baseline 已启动并逐级保存证据；50 m、20 m 完成，5 m 在 300 s 单级 watchdog 内未完成。未形成最终 5 m selected，未执行独立 selected revalidation，2880 未运行；T12=`UNRESOLVED`，M6B 禁止进入。
+- Q2 M6A.4 sparse generation PASS：20 m legacy/sparse 均为3883 cells；5 m 由991 region parents生成17292 cells，missing/extra=0，约0.512 s。5 m region-only strict classification 仍超300 s，下一瓶颈为批量 anchor propagation/certificate classification。
 
 ## 待验证
 

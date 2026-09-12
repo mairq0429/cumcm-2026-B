@@ -310,13 +310,16 @@ class StrictCertificateAccelerator:
             "whole_cell_strict_by_anchor": 0, "whole_cell_violation_by_anchor": 0,
         }
         while pending:
-            changed = True
-            while changed:
-                changed = False
-                for point in sorted(pending):
-                    propagated = propagate_candidate_cell(point, cell_radius_m, self.anchors)
-                    if propagated["status"] == "UNRESOLVED":
-                        continue
+            # Anchors do not change while propagated points are removed, so one
+            # deterministic pass is mathematically identical to rescanning after
+            # every removal and avoids quadratic pending-set traversal.
+            resolved = []
+            for point in sorted(pending):
+                propagated = propagate_candidate_cell(point, cell_radius_m, self.anchors)
+                if propagated["status"] == "UNRESOLVED":
+                    continue
+                resolved.append((point, propagated))
+            for point, propagated in resolved:
                     physical_status = (
                         "CERTIFIED_STRICT" if propagated["status"] == "CERTIFIED_STRICT_PROPAGATED"
                         else "CERTIFIED_VIOLATION"
@@ -350,7 +353,6 @@ class StrictCertificateAccelerator:
                     elif propagated["whole_cell_status"] == "WHOLE_CELL_CERTIFIED_VIOLATION":
                         counts["whole_cell_violation_by_anchor"] += 1
                     pending.remove(point)
-                    changed = True
             if not pending:
                 break
             # Farthest-from-anchor scheduling; ties are deterministic by x/y.
