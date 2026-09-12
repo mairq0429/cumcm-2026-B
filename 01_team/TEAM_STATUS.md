@@ -11,7 +11,7 @@
 
 ## 进行中
 
-- Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M5B 已实现，strict certificate 已 MODEL_ALIGNED。M6A.1 anchor propagation + shared physical tree 已通过 50 m benchmark（1190→82 full calls，约 1.24 s）；正式 M6A 尚未重跑，T12 仍 UNRESOLVED，M6B 不得开始。
+- Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M5B 已实现，strict certificate 已 MODEL_ALIGNED。M6A.1 anchor propagation + shared physical tree 已通过 50 m benchmark（1190→82 full calls，约 1.24 s）。正式 M6A 已按加速路径重启，但 1440 完整 50→20→5 配置在 300 s watchdog 内未完成；新瓶颈为粗层大量完整 M4 评价。T12 仍 UNRESOLVED，M6B 不得开始。
 
 ## 待验证
 
@@ -19,7 +19,7 @@
 
 ## 阻塞问题
 
-- 无模型冲突；strict certificate 的 50 m 性能瓶颈已显著缓解，但 Q2-I-002 保持 OPEN，直到完整 M6A 重跑通过。启动时仓库已有与本任务不重叠的 tools/results 未提交改动，须继续保留。
+- 无模型冲突；strict certificate 性能瓶颈已解决，但完整 M6A 的 coarse-objective M4 工作量仍超过单配置 watchdog，Q2-I-002 保持 OPEN。启动时仓库已有与本任务不重叠的 tools/results 未提交改动，须继续保留。
 
 ## 今天必须完成
 

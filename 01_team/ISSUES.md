@@ -14,7 +14,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 |
 | Q2-I-001 | M6 尚未完成 | M5B Garea/Qarea、风险阈值 shortlist 与 received-subset worst 已完成；正式全域结果、1440→2880、Lmin 敏感性和整体收敛仍待实现 | C | OPEN | 后续轮次 | Q2-robust-selection-v2.1 | eps_rec_cert 已冻结为数值认证精度且物理阈值为 0；仍需正式全域 1e-4/1e-3/1e-2 敏感性。area_q_tol 仍为 implementation parameter；不得在完成前声明 Q2 TESTED/VERIFIED |
-| Q2-I-002 | M6A 全域运行超出有界窗口 | 原 1440 基线 300 s 未完成；M6A.1 已在相同 50 m stage 以 anchor/shared-tree 将 1190 full estimate 降为 82 calls，总耗时约 1.24 s | C | OPEN | 完整重跑 M6A | Q2-robust-selection-v2.1 | 性能 benchmark PASS 且未降低标准；issue 保持 OPEN，直至 circle、candidate、eps-cert、Lmin、Gverify/replay 全门控重跑完成，当前 T12=UNRESOLVED |
+| Q2-I-002 | M6A 全域运行超出有界窗口 | strict certificate 已由 M6A.1 加速至约 1.24 s；正式重跑的 1440 完整配置仍在 300 s 未完成，3 个粗层 M4 样本约 0.75--0.81 s/点，当前瓶颈转移到大量粗层 objective M4 评价 | C | OPEN | 在不减少候选覆盖、source/error、Gverify/replay 标准的前提下安全减少/复用粗层 M4 工作，再完整重跑 M6A | Q2-robust-selection-v2.1 | 未启动 2880/eps-cert/Lmin；T12=UNRESOLVED，M6B 禁止进入 |
 
 ## P2
 

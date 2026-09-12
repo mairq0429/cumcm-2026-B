@@ -50,27 +50,41 @@
   "warnings": [
     "FULL_DOMAIN_RUNTIME_LIMIT_EXCEEDED"
   ],
-  "scope": "representative case; method validation, not a unique problem answer",
-  "M6A_status": "UNRESOLVED",
-  "T12_status": "UNRESOLVED",
-  "circle_status": "UNRESOLVED",
-  "candidate_status": "UNRESOLVED",
-  "source_error_status": "NOT_RUN",
-  "eps_rec_cert_sensitivity": "NOT_RUN",
-  "lmin_sensitivity": "NOT_RUN",
-  "gverify": "NOT_RUN",
-  "replay": "NOT_RUN",
-  "monotone": "NOT_RUN",
-  "selected_representative_S2": null,
-  "JD": null,
-  "JR": null,
-  "JA": null,
-  "T2": null,
-  "official20": null,
-  "operational17": null,
-  "risk_threshold_unresolved_count": null,
-  "runtime_s": 300.0,
-  "M6B_status": "BLOCKED_PENDING_M6A",
-  "entry_to_M6B": false,
+  "runtime_breakdown": {
+    "status": "FULL_DOMAIN_RUNTIME_LIMIT_EXCEEDED",
+    "stage": "circle1440_full_candidate_search_50_20_5",
+    "elapsed_s": 300.0,
+    "watchdog_limit_s": 300.0,
+    "completed": false,
+    "subsequent_configurations_started": false,
+    "blocking_stage": "coarse_objective_M4_evaluation",
+    "bounded_M4_profile": {
+      "sample_count": 3,
+      "runtime_s": [
+        0.7888285000008182,
+        0.8081967999969493,
+        0.7539431000041077
+      ],
+      "mean_runtime_s": 0.7836564666672918,
+      "statuses": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    "acceleration": {
+      "coarse_cells": 3844,
+      "remaining_after_sample": 1190,
+      "full_certificate_calls": 82,
+      "anchor_count": 83,
+      "propagated_strict_points": 1108,
+      "propagated_violation_points": 0,
+      "shared_tree_nodes": 612,
+      "tree_nodes_created": 610,
+      "tree_nodes_reused": 12782,
+      "certificate_only_runtime_s": 1.23693070000445
+    },
+    "standards_reduced": false
+  },
   "artifact_status": "VALIDATION / NOT_FINAL_Q2_RESULT"
 }

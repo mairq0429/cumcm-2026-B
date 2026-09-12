@@ -32,6 +32,16 @@ Point = tuple[float, float]
 VALIDATION_LABEL = "VALIDATION / NOT_FINAL_Q2_RESULT"
 
 
+def accelerated_certificate_engine_factory(P1_bound, S1, config):
+    """Build the mandatory M6A shared-tree certificate engine."""
+
+    from q2_certificate_acceleration import PhysicalCertificateTree, StrictCertificateAccelerator
+
+    return StrictCertificateAccelerator(
+        PhysicalCertificateTree(P1_bound, S1, config), config
+    )
+
+
 def _jsonable(value):
     if is_dataclass(value):
         return _jsonable(asdict(value))
@@ -349,8 +359,36 @@ def write_m6a_runtime_blocked_reports(
             "scope": "representative case; method validation, not a unique problem answer",
             "M6A_status": "UNRESOLVED",
             "T12_status": "UNRESOLVED",
+            "circle_status": "UNRESOLVED",
+            "candidate_status": "UNRESOLVED",
+            "source_error_status": "NOT_RUN",
+            "eps_rec_cert_sensitivity": "NOT_RUN",
+            "lmin_sensitivity": "NOT_RUN",
+            "gverify": "NOT_RUN",
+            "replay": "NOT_RUN",
+            "monotone": "NOT_RUN",
+            "selected_representative_S2": None,
+            "JD": None,
+            "JR": None,
+            "JA": None,
+            "T2": None,
+            "official20": None,
+            "operational17": None,
+            "risk_threshold_unresolved_count": None,
+            "runtime_s": runtime_profile.get("elapsed_s"),
             "M6B_status": "BLOCKED_PENDING_M6A",
             "entry_to_M6B": False,
+        },
+        "runtime_breakdown.json": {
+            **common,
+            "runtime_breakdown": dict(runtime_profile),
+        },
+        "acceleration_usage.json": {
+            **common,
+            "certificate_engine": "StrictCertificateAccelerator",
+            "physical_certificate_tree": True,
+            "legacy_certificate_used_for_full_search": False,
+            "acceleration": dict(runtime_profile.get("acceleration", {})),
         },
     }
     for name, payload in payloads.items():
@@ -371,6 +409,8 @@ def run_m6a_validation(
     """Run M6A on a clearly labelled representative case."""
 
     started = time.perf_counter()
+    if certificate_engine_factory is None:
+        certificate_engine_factory = accelerated_certificate_engine_factory
     directory = Path(output_dir)
     cache = _ValidationCache()
     search_cache = {}
@@ -388,17 +428,16 @@ def run_m6a_validation(
         run_started = time.perf_counter()
         p1 = build_P1_bound(S1, theta1_hat_deg, config)
         engine = None
-        if certificate_engine_factory is not None:
-            engine_key = (config.circle_sides, config.eps_rec_cert_m)
-            if engine_key not in engine_cache:
-                engine_cache[engine_key] = certificate_engine_factory(p1, S1, config)
-            engine = engine_cache[engine_key]
+        engine_key = (config.circle_sides, config.eps_rec_cert_m)
+        if engine_key not in engine_cache:
+            engine_cache[engine_key] = certificate_engine_factory(p1, S1, config)
+        engine = engine_cache[engine_key]
         search = search_fn(
             S1, theta1_hat_deg, config, P1_bound=p1,
             certificate_fn=cache.certificate,
             certificate_batch_engine=engine,
             m4_fn=cache.evaluate,
-            pass_certificate_to_m4=engine is not None,
+            pass_certificate_to_m4=True,
         )
         snapshot = summarize_search(search)
         snapshot.update({
@@ -498,11 +537,46 @@ def run_m6a_validation(
         + eps_report["assessment"]["warnings"] + lmin_report["assessment"]["warnings"]
     ))
     runtime = time.perf_counter() - started
+    configuration_runs = []
+    acceleration_runs = []
+    for (circle_sides, eps_value, lmin_value), (search, snapshot) in sorted(search_cache.items()):
+        configuration_runs.append({
+            "circle_sides": circle_sides,
+            "eps_rec_cert_m": eps_value,
+            "lmin_m": lmin_value,
+            "runtime_s": snapshot["runtime_s"],
+        })
+        acceleration_runs.append({
+            "circle_sides": circle_sides,
+            "eps_rec_cert_m": eps_value,
+            "lmin_m": lmin_value,
+            "levels": [
+                {
+                    key: diagnostics.get(key)
+                    for key in (
+                        "candidate_total", "certificate_calls", "full_certificate_calls",
+                        "propagated_strict_points", "propagated_violation_points",
+                        "whole_cell_strict_by_anchor", "whole_cell_violation_by_anchor",
+                        "shared_tree_nodes", "tree_nodes_created", "tree_nodes_reused",
+                        "M4_evaluated", "runtime_s",
+                    )
+                }
+                for diagnostics in search["level_diagnostics"]
+            ],
+        })
+    runtime_report = {"total_runtime_s": runtime, "configurations": configuration_runs}
+    acceleration_report = {
+        "certificate_engine": "StrictCertificateAccelerator",
+        "physical_certificate_tree": True,
+        "legacy_certificate_used_for_full_search": False,
+        "runs": acceleration_runs,
+    }
     summary = {
         "scope": "representative case; method validation, not a unique problem answer",
         "representative_case": {"S1": list(S1), "theta1_hat_deg": theta1_hat_deg,
                                 "omega_move": _jsonable(omega_move)},
         "T12_status": t12["T12_status"],
+        "M6A_status": "COMPLETE" if t12["T12_status"] == "PASS" else "UNRESOLVED",
         "circle_status": circle_assessment["status"],
         "candidate_status": candidate_assessment["status"],
         "eps_rec_cert_sensitivity": eps_report["assessment"]["status"],
@@ -510,9 +584,19 @@ def run_m6a_validation(
         "risk_threshold_unresolved_count": risk_report["threshold_unresolved_count"],
         "gverify": gverify_status,
         "replay": replay_status,
+        "monotone": monotone_status,
+        "source_error_status": source_error_status,
+        "selected_representative_S2": _selected_record(selected),
         "runtime_s": runtime,
         "warnings": warnings,
         "M6B_status": "PENDING",
+        "entry_to_M6B": (
+            t12["T12_status"] == "PASS"
+            and not any(warning in warnings for warning in (
+                "NON_MONOTONE_REFINEMENT", "MODEL_SPEC_CONFLICT",
+                "CERTIFICATE_ACCEL_CONFLICT",
+            ))
+        ),
     }
     for name, payload in (
         ("convergence_circle.json", circle_report),
@@ -523,13 +607,15 @@ def run_m6a_validation(
         ("area_risk_refinement.json", risk_report),
         ("T12_report.json", t12),
         ("M6A_summary.json", summary),
+        ("runtime_breakdown.json", runtime_report),
+        ("acceleration_usage.json", acceleration_report),
     ):
         _write(directory, name, payload)
     return summary
 
 
 __all__ = [
-    "VALIDATION_LABEL", "aggregate_t12", "assess_candidate_convergence",
+    "VALIDATION_LABEL", "accelerated_certificate_engine_factory", "aggregate_t12", "assess_candidate_convergence",
     "assess_circle_sensitivity", "assess_eps_cert_sensitivity",
     "assess_lmin_sensitivity", "preserve_risk_threshold_status",
     "run_m6a_validation", "summarize_search", "write_m6a_runtime_blocked_reports",

@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 import unittest
 
 
@@ -8,13 +9,18 @@ if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
 from q2_m6_validation import (  # noqa: E402
+    accelerated_certificate_engine_factory,
     aggregate_t12,
     assess_candidate_convergence,
     assess_circle_sensitivity,
     assess_eps_cert_sensitivity,
     assess_lmin_sensitivity,
     preserve_risk_threshold_status,
+    run_m6a_validation,
+    write_m6a_runtime_blocked_reports,
 )
+from q2_selection import Q2Config, build_P1_bound  # noqa: E402
+from q2_certificate_acceleration import StrictCertificateAccelerator  # noqa: E402
 
 
 def selected(x=10.0, jd=8.0, jr=4.0, t2=2.0, official=True):
@@ -25,6 +31,49 @@ def selected(x=10.0, jd=8.0, jr=4.0, t2=2.0, official=True):
 
 
 class TestQ2M6AValidationLogic(unittest.TestCase):
+    def test_default_accelerated_factory_builds_shared_engine(self):
+        config = Q2Config(circle_sides=72)
+        p1 = build_P1_bound((1700.0, 0.0), 0.0, config)
+        engine = accelerated_certificate_engine_factory(p1, (1700.0, 0.0), config)
+        self.assertIsInstance(engine, StrictCertificateAccelerator)
+
+    def test_full_validation_path_invokes_injected_factory_before_search(self):
+        calls = []
+
+        def factory(p1, s1, config):
+            calls.append((config.circle_sides, config.eps_rec_cert_m, config.lmin_m))
+            return object()
+
+        def stop_search(*args, **kwargs):
+            self.assertIsNotNone(kwargs.get("certificate_batch_engine"))
+            self.assertTrue(kwargs.get("pass_certificate_to_m4"))
+            raise RuntimeError("intentional_validation_test_stop")
+
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(RuntimeError, "intentional_validation_test_stop"):
+                run_m6a_validation(
+                    output_dir=directory,
+                    search_fn=stop_search,
+                    certificate_engine_factory=factory,
+                )
+        self.assertEqual(calls, [(1440, 1.0e-3, 50.0)])
+
+    def test_runtime_blocked_bundle_has_full_gate_and_acceleration_evidence(self):
+        profile = {
+            "elapsed_s": 300.0,
+            "acceleration": {"full_certificate_calls": 82},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            summary = write_m6a_runtime_blocked_reports(
+                directory,
+                representative_case={"S1": [1700.0, 0.0], "theta1_hat_deg": 0.0},
+                runtime_profile=profile,
+            )
+            self.assertEqual(summary["T12_status"], "UNRESOLVED")
+            self.assertFalse(summary["entry_to_M6B"])
+            self.assertTrue(os.path.exists(os.path.join(directory, "runtime_breakdown.json")))
+            self.assertTrue(os.path.exists(os.path.join(directory, "acceleration_usage.json")))
+
     def test_T12_aggregation_requires_every_gate(self):
         gates = {key: "PASS" for key in (
             "circle", "source_error", "candidate", "gverify", "replay", "monotone"
