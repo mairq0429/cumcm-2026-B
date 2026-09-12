@@ -48,6 +48,17 @@ class PhysicalCertificateNode:
     children: Optional[tuple[str, str]] = None
 
 
+@dataclass
+class PendingState:
+    point: Point
+    nearest_anchor_distance: float = math.inf
+    nearest_anchor_id: Optional[str] = None
+    best_L_rec_m: float = -math.inf
+    best_U_rec_m: float = math.inf
+    lower_anchor_id: Optional[str] = None
+    upper_anchor_id: Optional[str] = None
+
+
 class PhysicalCertificateTree:
     """Lazy geometry tree shared by all S2 candidates for one P1/S1."""
 
@@ -287,6 +298,7 @@ class StrictCertificateAccelerator:
         self.full_certificate_calls = 0
         self.tree_nodes_created = 0
         self.tree_nodes_reused = 0
+        self.anchor_sequence: list[Point] = []
 
     def _add_anchor(self, S2: Point, certificate: Mapping[str, object]) -> None:
         self.full_certificate_calls += 1
@@ -301,8 +313,10 @@ class StrictCertificateAccelerator:
             cells_examined=int(certificate["cells_examined"]),
             source="accelerated_full_certificate",
         ))
+        self.anchor_sequence.append(S2)
 
-    def certify_points(self, points: Iterable[Sequence[float]], cell_radius_m: float = 0.0) -> dict:
+    def certify_points_legacy(self, points: Iterable[Sequence[float]], cell_radius_m: float = 0.0) -> dict:
+        """Pre-M6A.5 all-anchor rescanning implementation retained as oracle."""
         pending = {q2._point(point, "S2") for point in points}
         results: dict[Point, dict] = {}
         counts = {
@@ -388,6 +402,159 @@ class StrictCertificateAccelerator:
                 for value in results.values()
             ),
         }
+
+    def _incremental_result(self, state: PendingState, cell_radius_m: float) -> Optional[dict]:
+        if state.best_U_rec_m <= 0.0 and state.best_L_rec_m > 0.0:
+            raise RuntimeError("CERTIFICATE_PROPAGATION_CONFLICT")
+        status = "CERTIFIED_STRICT" if state.best_U_rec_m <= 0.0 else (
+            "CERTIFIED_VIOLATION" if state.best_L_rec_m > 0.0 else None
+        )
+        if status is None:
+            return None
+        whole = (
+            "WHOLE_CELL_CERTIFIED_STRICT"
+            if state.best_U_rec_m + cell_radius_m <= 0.0 else (
+                "WHOLE_CELL_CERTIFIED_VIOLATION"
+                if state.best_L_rec_m - cell_radius_m > 0.0 else "UNRESOLVED"
+            )
+        )
+        return {
+            "status": status,
+            "strict_receive": status == "CERTIFIED_STRICT",
+            "certified": True,
+            "L_rec_m": state.best_L_rec_m,
+            "U_rec_m": state.best_U_rec_m,
+            "interval_width_m": (
+                state.best_U_rec_m - state.best_L_rec_m
+                if math.isfinite(state.best_L_rec_m) and math.isfinite(state.best_U_rec_m)
+                else math.inf
+            ),
+            "eps_rec_cert_m": self.config.eps_rec_cert_m,
+            "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
+            "cells_examined": 0,
+            "counterexample": None,
+            "reason": (
+                "CERTIFIED_STRICT_PROPAGATED" if status == "CERTIFIED_STRICT"
+                else "CERTIFIED_VIOLATION_PROPAGATED"
+            ),
+            "accelerated": True,
+            "tree_nodes_reused": 0,
+            "tree_nodes_created": 0,
+            "anchor_used": state.upper_anchor_id if status == "CERTIFIED_STRICT" else state.lower_anchor_id,
+            "whole_cell_status": whole,
+        }
+
+    def certify_points_incremental(
+        self, points: Iterable[Sequence[float]], cell_radius_m: float = 0.0
+    ) -> dict:
+        """Event-driven exact anchor propagation; each anchor-point pair is evaluated once."""
+
+        total_started = time.perf_counter()
+        states = {point: PendingState(point) for point in {q2._point(p, "S2") for p in points}}
+        results: dict[Point, dict] = {}
+        initial_anchor_count = len(self.anchors)
+        full_before = self.full_certificate_calls
+        distance_evaluations = scheduler_scans = 0
+        initial_runtime = incremental_runtime = full_runtime = 0.0
+        propagated_existing = propagated_new = 0
+
+        def resolve_pending() -> int:
+            resolved = []
+            for point, state in states.items():
+                result = self._incremental_result(state, cell_radius_m)
+                if result is not None:
+                    resolved.append((point, result))
+            for point, result in resolved:
+                results[point] = result
+                del states[point]
+            return len(resolved)
+
+        def apply(anchor: CertificateAnchor, phase: str, *, resolve: bool = True) -> int:
+            nonlocal distance_evaluations, initial_runtime, incremental_runtime
+            started = time.perf_counter()
+            for point, state in states.items():
+                distance = _distance(point, anchor.S2)
+                distance_evaluations += 1
+                if distance < state.nearest_anchor_distance:
+                    state.nearest_anchor_distance = distance
+                    state.nearest_anchor_id = anchor.certificate_id
+                if math.isfinite(anchor.L_rec_m):
+                    value = anchor.L_rec_m - distance
+                    if value > state.best_L_rec_m:
+                        state.best_L_rec_m, state.lower_anchor_id = value, anchor.certificate_id
+                if math.isfinite(anchor.U_rec_m):
+                    value = anchor.U_rec_m + distance
+                    if value < state.best_U_rec_m:
+                        state.best_U_rec_m, state.upper_anchor_id = value, anchor.certificate_id
+            resolved_count = resolve_pending() if resolve else 0
+            elapsed = time.perf_counter() - started
+            if phase == "initial":
+                initial_runtime += elapsed
+            else:
+                incremental_runtime += elapsed
+            return resolved_count
+
+        for anchor in tuple(self.anchors):
+            apply(anchor, "initial", resolve=False)
+        initial_resolution_started = time.perf_counter()
+        propagated_existing = resolve_pending()
+        initial_runtime += time.perf_counter() - initial_resolution_started
+        while states:
+            scheduler_scans += len(states)
+            point = max(
+                states,
+                key=lambda candidate: (
+                    states[candidate].nearest_anchor_distance,
+                    -candidate[0], -candidate[1],
+                ),
+            )
+            cert_started = time.perf_counter()
+            certificate = accelerated_certified_strict(point, self.tree, self.tree.S1, self.config)
+            full_runtime += time.perf_counter() - cert_started
+            if certificate["U_rec_m"] + cell_radius_m <= 0.0:
+                certificate["whole_cell_status"] = "WHOLE_CELL_CERTIFIED_STRICT"
+            elif certificate["L_rec_m"] - cell_radius_m > 0.0:
+                certificate["whole_cell_status"] = "WHOLE_CELL_CERTIFIED_VIOLATION"
+            else:
+                certificate["whole_cell_status"] = "UNRESOLVED"
+            results[point] = certificate
+            del states[point]
+            self._add_anchor(point, certificate)
+            propagated_new += apply(self.anchors[-1], "incremental")
+
+        values = list(results.values())
+        full_this_batch = self.full_certificate_calls - full_before
+        return {
+            "certificates": results,
+            "anchor_count": len(self.anchors),
+            "full_certificate_calls": self.full_certificate_calls,
+            "full_certificate_calls_this_batch": full_this_batch,
+            "shared_tree_nodes": len(self.tree.nodes),
+            "tree_nodes_created": self.tree_nodes_created,
+            "tree_nodes_reused": self.tree_nodes_reused,
+            "propagated_strict_points": sum(v.get("reason") == "CERTIFIED_STRICT_PROPAGATED" for v in values),
+            "propagated_violation_points": sum(v.get("reason") == "CERTIFIED_VIOLATION_PROPAGATED" for v in values),
+            "whole_cell_strict_by_anchor": sum(v.get("whole_cell_status") == "WHOLE_CELL_CERTIFIED_STRICT" for v in values),
+            "whole_cell_violation_by_anchor": sum(v.get("whole_cell_status") == "WHOLE_CELL_CERTIFIED_VIOLATION" for v in values),
+            "still_unresolved": sum(v["status"] in {"UNCERTAIN_BOUNDARY", "UNRESOLVED"} for v in values),
+            "incremental_distance_evaluations": distance_evaluations,
+            "legacy_estimated_anchor_distance_evaluations": scheduler_scans * max(1, len(self.anchors)),
+            "initial_anchor_count": initial_anchor_count,
+            "new_anchor_count": full_this_batch,
+            "pending_initial": len(results),
+            "pending_after_initial_anchor_propagation": len(results) - propagated_existing,
+            "propagated_by_existing_anchors": propagated_existing,
+            "propagated_by_new_anchors": propagated_new,
+            "scheduler_scan_count": scheduler_scans,
+            "runtime_initial_propagation_s": initial_runtime,
+            "runtime_incremental_propagation_s": incremental_runtime,
+            "runtime_full_certificate_s": full_runtime,
+            "runtime_total_s": time.perf_counter() - total_started,
+            "anchor_sequence": list(self.anchor_sequence[full_before:]),
+        }
+
+    def certify_points(self, points: Iterable[Sequence[float]], cell_radius_m: float = 0.0) -> dict:
+        return self.certify_points_incremental(points, cell_radius_m)
 
 
 def benchmark_coarse_50m(
@@ -572,7 +739,7 @@ def run_legacy_accelerated_equivalence(
 
 
 __all__ = [
-    "CertificateAnchor", "PhysicalCertificateNode", "PhysicalCertificateTree",
+    "CertificateAnchor", "PendingState", "PhysicalCertificateNode", "PhysicalCertificateTree",
     "StrictCertificateAccelerator", "accelerated_certified_strict",
     "benchmark_coarse_50m", "propagate_anchor_bounds", "propagate_candidate_cell",
     "run_coarse_benchmark_to_file", "run_legacy_accelerated_equivalence",

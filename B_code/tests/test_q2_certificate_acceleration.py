@@ -10,12 +10,12 @@ if SRC_DIR not in sys.path:
 
 from q2_certificate_acceleration import (  # noqa: E402
     CertificateAnchor,
+    PendingState,
     PhysicalCertificateTree,
     StrictCertificateAccelerator,
     accelerated_certified_strict,
     propagate_anchor_bounds,
     propagate_candidate_cell,
-    run_legacy_accelerated_equivalence,
     run_legacy_accelerated_equivalence,
 )
 from q2_selection import (  # noqa: E402
@@ -140,6 +140,60 @@ class TestQ2CertificateAcceleration(unittest.TestCase):
         self.assertLess(result["full_certificate_calls"], len(points))
         self.assertGreater(result["propagated_strict_points"], 0)
 
+    def test_incremental_matches_legacy_across_three_batches(self):
+        legacy = StrictCertificateAccelerator(
+            PhysicalCertificateTree(self.P1, self.S1, self.config), self.config
+        )
+        incremental = StrictCertificateAccelerator(
+            PhysicalCertificateTree(self.P1, self.S1, self.config), self.config
+        )
+        batches = [
+            [(1400.0 + 50.0 * i, -100.0 + 50.0 * (i % 3)) for i in range(10)],
+            [(1450.0 + 20.0 * i, -60.0 + 20.0 * (i % 4)) for i in range(18)],
+            [(1500.0 + 5.0 * i, -25.0 + 5.0 * (i % 6)) for i in range(30)],
+        ]
+        for points in batches:
+            old_sequence_start = len(legacy.anchor_sequence)
+            new_sequence_start = len(incremental.anchor_sequence)
+            old = legacy.certify_points_legacy(points, 2.0)
+            new = incremental.certify_points_incremental(points, 2.0)
+            for point in points:
+                self.assertEqual(old["certificates"][point]["status"], new["certificates"][point]["status"])
+                self.assertEqual(old["certificates"][point]["strict_receive"], new["certificates"][point]["strict_receive"])
+                self.assertEqual(old["certificates"][point]["whole_cell_status"], new["certificates"][point]["whole_cell_status"])
+            self.assertEqual(
+                legacy.anchor_sequence[old_sequence_start:],
+                incremental.anchor_sequence[new_sequence_start:],
+            )
+
+    def test_incremental_zero_boundary_rules(self):
+        at_zero = CertificateAnchor((0.0, 0.0), 0.0, 0.0, "BOUNDARY", "z", 0, "test")
+        plus = CertificateAnchor((0.0, 0.0), 1.0e-12, 1.0e-12, "BOUNDARY", "p", 0, "test")
+        self.assertEqual(propagate_anchor_bounds((0.0, 0.0), [at_zero])["status"], "CERTIFIED_STRICT_PROPAGATED")
+        self.assertEqual(propagate_anchor_bounds((0.0, 0.0), [plus])["status"], "CERTIFIED_VIOLATION_PROPAGATED")
+        self.assertNotEqual(propagate_anchor_bounds((1.0e-12, 0.0), [at_zero])["status"], "CERTIFIED_STRICT_PROPAGATED")
+        self.assertNotEqual(propagate_anchor_bounds((1.0e-12, 0.0), [at_zero])["status"], "CERTIFIED_VIOLATION_PROPAGATED")
+
+    def test_incremental_reports_distance_diagnostics(self):
+        engine = StrictCertificateAccelerator(
+            PhysicalCertificateTree(self.P1, self.S1, self.config), self.config
+        )
+        result = engine.certify_points_incremental(
+            [(1705.0 + 5.0 * i, 5.0 * (i % 2)) for i in range(50)], 2.0
+        )
+        self.assertGreater(result["incremental_distance_evaluations"], 0)
+        self.assertEqual(result["pending_initial"], 50)
+        self.assertIn("runtime_initial_propagation_s", result)
+        self.assertIn("full_certificate_calls_this_batch", result)
+
+    def test_incremental_detects_inconsistent_propagated_bounds(self):
+        engine = StrictCertificateAccelerator(
+            PhysicalCertificateTree(self.P1, self.S1, self.config), self.config
+        )
+        state = PendingState((1700.0, 0.0), best_L_rec_m=1.0, best_U_rec_m=-1.0)
+        with self.assertRaisesRegex(RuntimeError, "CERTIFICATE_PROPAGATION_CONFLICT"):
+            engine._incremental_result(state, 0.0)
+
     def test_M5A_batch_integration_preserves_strict_contract(self):
         cfg = Q2Config(omega_move=((1760.0, 20.0), (1790.0, 20.0), (1790.0, 40.0), (1760.0, 40.0)))
         p1 = build_P1_bound(self.S1, 0.0, cfg)
@@ -161,6 +215,8 @@ class TestQ2CertificateAcceleration(unittest.TestCase):
             pass_certificate_to_m4=True,
         )
         self.assertGreater(result["certificate_calls"], 0)
+        self.assertIn("incremental_distance_evaluations", result["level_diagnostics"][-1])
+        self.assertIn("full_certificate_calls_this_batch", result["level_diagnostics"][-1])
         self.assertTrue(any(
             cell.whole_cell_strict_certified for cell in result["region_cells"]
         ))

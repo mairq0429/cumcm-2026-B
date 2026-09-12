@@ -2392,6 +2392,25 @@ def search_strict_candidates(
                 "tree_nodes_created": batch_result["tree_nodes_created"],
                 "tree_nodes_reused": batch_result["tree_nodes_reused"],
             })
+            for diagnostic_key in (
+                "full_certificate_calls_this_batch",
+                "incremental_distance_evaluations",
+                "legacy_estimated_anchor_distance_evaluations",
+                "initial_anchor_count",
+                "new_anchor_count",
+                "pending_initial",
+                "pending_after_initial_anchor_propagation",
+                "propagated_by_existing_anchors",
+                "propagated_by_new_anchors",
+                "scheduler_scan_count",
+                "runtime_initial_propagation_s",
+                "runtime_incremental_propagation_s",
+                "runtime_full_certificate_s",
+                "runtime_total_s",
+                "anchor_sequence",
+            ):
+                if diagnostic_key in batch_result:
+                    counters[diagnostic_key] = batch_result[diagnostic_key]
         for cell in cells:
             if not cell.center_in_move_domain:
                 cell.status = "OMEGA_BOUNDARY_UNRESOLVED"

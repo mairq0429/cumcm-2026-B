@@ -1,0 +1,122 @@
+{
+  "artifact_status": "VALIDATION / NOT_FINAL_Q2_RESULT",
+  "phase": "Q2_M6A.5_INCREMENTAL_ANCHOR_PROPAGATION",
+  "status": "INCREMENTAL_PROPAGATION_PASS",
+  "case": "REPRESENTATIVE_CASE / NOT_UNIQUE_PROBLEM_ANSWER",
+  "input": {
+    "S1": [1700.0, 0.0],
+    "theta1_hat_deg": 0.0,
+    "circle_sides": 1440,
+    "eps_rec_cert_m": 0.001,
+    "Lmin_m": 50.0,
+    "Omega_move": null,
+    "region_only": true,
+    "M4_calls": 0
+  },
+  "microbenchmark": {
+    "N1000": {
+      "legacy_runtime_s": 0.0137874,
+      "incremental_runtime_s": 0.0127127,
+      "legacy_full_calls": 1,
+      "incremental_full_calls": 1
+    },
+    "N5000": {
+      "legacy_runtime_s": 0.0781839,
+      "incremental_runtime_s": 0.0529743,
+      "legacy_full_calls": 2,
+      "incremental_full_calls": 2
+    }
+  },
+  "formal_region_only": {
+    "runtime_s": 56.5239115,
+    "levels": {
+      "50": {
+        "candidate_total": 3844,
+        "sample_rejected": 2530,
+        "certificate_strict": 1184,
+        "certificate_violation": 2,
+        "certificate_uncertain_boundary": 0,
+        "certificate_unresolved": 0,
+        "existing_anchors": 1,
+        "new_anchors": 82,
+        "full_certificate_calls_this_batch": 82,
+        "propagated_by_existing_anchors": 0,
+        "propagated_by_new_anchors": 1104,
+        "incremental_distance_evaluations": 17385,
+        "legacy_estimated_anchor_distance_evaluations": 1351323,
+        "whole_cell_strict": 935,
+        "whole_cell_violation": 0,
+        "shared_tree_nodes": 612,
+        "tree_nodes_created": 610,
+        "tree_nodes_reused": 12782,
+        "runtime_s": 0.9914704
+      },
+      "20": {
+        "candidate_total": 3883,
+        "sample_rejected": 1176,
+        "certificate_strict": 2373,
+        "certificate_violation": 8,
+        "certificate_uncertain_boundary": 0,
+        "certificate_unresolved": 0,
+        "existing_anchors": 83,
+        "new_anchors": 163,
+        "full_certificate_calls_this_batch": 163,
+        "propagated_by_existing_anchors": 2180,
+        "propagated_by_new_anchors": 38,
+        "incremental_distance_evaluations": 212869,
+        "legacy_estimated_anchor_distance_evaluations": 3790614,
+        "whole_cell_strict": 1924,
+        "whole_cell_violation": 0,
+        "shared_tree_nodes": 828,
+        "tree_nodes_created": 826,
+        "tree_nodes_reused": 75019,
+        "runtime_s": 2.331544
+      },
+      "5": {
+        "candidate_total": 17292,
+        "certificate_batch_points": 9588,
+        "sample_rejected": 6352,
+        "certificate_strict": 9432,
+        "certificate_violation": 150,
+        "certificate_uncertain_boundary": 0,
+        "certificate_unresolved": 6,
+        "existing_anchors": 246,
+        "new_anchors": 881,
+        "full_certificate_calls_this_batch": 881,
+        "pending_after_initial_anchor_propagation": 1743,
+        "propagated_by_existing_anchors": 7845,
+        "propagated_by_new_anchors": 862,
+        "incremental_distance_evaluations": 2921310,
+        "legacy_estimated_anchor_distance_evaluations": 635112961,
+        "whole_cell_strict": 7239,
+        "whole_cell_violation": 0,
+        "shared_tree_nodes": 6930,
+        "tree_nodes_created": 6928,
+        "tree_nodes_reused": 2206059,
+        "candidate_generation_runtime_s": 0.267889,
+        "initial_anchor_propagation_runtime_s": 2.414094,
+        "new_anchor_propagation_runtime_s": 1.3375274,
+        "full_certificate_runtime_s": 47.0516506,
+        "certificate_batch_runtime_s": 51.1705609,
+        "region_level_runtime_s": 53.1627029
+      }
+    }
+  },
+  "comparison": {
+    "prior_region_only_runtime": ">300 s",
+    "current_region_only_runtime_s": 56.5239115,
+    "minimum_speedup": 5.30748,
+    "five_meter_distance_evaluation_reduction_factor": 217.41,
+    "legacy_incremental_status_difference_count": 0,
+    "anchor_sequence_difference_count": 0,
+    "certificate_propagation_conflict_count": 0
+  },
+  "standards_reduced": false,
+  "strict_physical_threshold_m": 0.0,
+  "eps_rec_cert_role": "MODEL_FROZEN_CERTIFICATION_PRECISION",
+  "warnings": [
+    "SIX_FIVE_METER_CERTIFICATE_CELLS_REMAIN_UNRESOLVED",
+    "FULL_1440_OBJECTIVE_M4_NOT_RUN",
+    "T12_REMAINS_UNRESOLVED"
+  ]
+}
