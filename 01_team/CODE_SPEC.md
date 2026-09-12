@@ -58,6 +58,7 @@
 - M6A.3 1440 baseline runner：`q2_m6_1440_validation.py` 通过 level callback 在 50/20/5 每层完成后立即写 checkpoint，并要求最终选择仅来自 5 m 完整 M4 PASS。正式代表性运行的 50 m 与 20 m 层完成；5 m 层达到 300 s watchdog 未完成，故 baseline/T12 保持 `UNRESOLVED`，不启动 2880。
 - M6A.4 sparse candidate generation：生产路径使用 parent-bbox 驱动的 `_candidate_cells_sparse`，legacy 全域扫描保留为测试 oracle。非整数 50→20、20→5、多 parent IDs、objective IDs 与 Omega boundary 均逐字段等价。正式 5 m 从 373240 全局格×parents 的约 13.42 亿检查降至 125670 次 bbox checks，生成 17292 cells 约 0.512 s；region-only certificate classification 仍超过 300 s，状态 `REGION_CLASSIFICATION_RUNTIME_UNRESOLVED`。
 - M6A.5 incremental anchor propagation：`StrictCertificateAccelerator.certify_points_legacy` 保留批量 oracle，生产 `certify_points` 委托 event-driven `certify_points_incremental`。初始化时先对全部既有 anchors 累积最优 L/U，再统一解析 pending，保证 whole-cell 结果与 legacy 完全一致；此后每个新增 anchor 对每个当时 pending point 只计算一次距离，并精确维护 nearest-anchor distance、best propagated L/U 和 deterministic farthest scheduler。传播及整格符号判断仍严格使用 0，不使用 `eps_rec_cert_m` 放宽。正式 5 m region-only 为17292 candidates、9588 certificate batch points，复用246个既有 anchors，新增881个 full anchors；7845点由既有 anchors、862点由新增 anchors传播，完整50→20→5 region-only用时约56.5 s（原 >300 s），M4调用为0。6个5 m cells仍为合法 `UNRESOLVED`，不影响性能修复结论但必须在后续完整验证中保留。
+- M6A.7a boundary diagnostic：`q2_m6_boundary_projection.py` 对给定候选按 `S1 + Lmin*(S2-S1)/||S2-S1||` 计算径向投影，并为每个投影点建立fresh P1、独立运行zero-threshold strict certificate及完整nested M4/Gverify/replay。只有全部门通过且validated `JR+EPS_MEC<=20` 才标`boundary_C20=true`；结果不参与或改变既有grid selection rule。
 
 ## Q3
 

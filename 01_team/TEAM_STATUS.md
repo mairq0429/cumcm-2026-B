@@ -22,6 +22,7 @@
 - Q2 M6A.4 sparse generation PASS：20 m legacy/sparse 均为3883 cells；5 m 由991 region parents生成17292 cells，missing/extra=0，约0.512 s。5 m region-only strict classification 仍超300 s，下一瓶颈为批量 anchor propagation/certificate classification。
 - Q2 M6A.5 incremental anchor propagation PASS：legacy oracle 与 incremental 三批次的点状态、whole-cell状态及anchor序列零差异；正式5 m region-only复用246个既有anchors、新增881个full anchors，完成17292 cells分类，整套50→20→5 region-only约56.5 s（原>300 s），且M4=0。5 m结果为strict 9432、violation 150、uncertain-boundary 0、unresolved 6；本轮不重跑完整1440，T12仍UNRESOLVED。
 - Q2 M6A.6 unresolved-competitive gate 已实现并通过回归。完整1440代表性 baseline 已于84.03 s完成：6个最终UNRESOLVED cells全部为noncompetitive，gate=`PASS_NONCOMPETITIVE_UNRESOLVED`；selected独立复核、source/error、Gverify、JD/JR/JA replay及monotone均PASS。但20→5的T2/JD/JR relchg分别为0.00724/0.13077/0.13077，故`CANDIDATE_GRID_SENSITIVE`，1440状态与T12保持UNRESOLVED，禁止进入2880。
+- Q2 M6A.7a Lmin boundary radial projection diagnostic：将20m/5m selected按公式投影到`||S2-S1||=50m`后，两个点均以fresh P1通过CERTIFIED_STRICT、完整M4、source/error、Gverify与JD/JR/JA replay，且重新满足official20/operational17。故代表性案例存在boundary C20 witness，并由Lmin证明`T2*=10s`；这是VALIDATION/DIAGNOSTIC，不改变全局selection rule、T12或1440 candidate-grid sensitivity状态。
 
 ## 待验证
 

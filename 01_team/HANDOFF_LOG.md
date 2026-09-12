@@ -65,3 +65,9 @@
 - 完整1440代表性运行完成，runtime 84.03 s。5m selected=`(1727.5,-42.5)`，T2=10.1242284，JD=10.9187415，JR=5.45937077，JA=17.3078593，official20/operational17均true。
 - 独立source/error convergence、Gverify、JD/JR/JA replay、monotone均PASS。
 - 阻塞：20→5 relchg(T2,JD,JR)=0.0072377/0.130774/0.130774，状态`CANDIDATE_GRID_SENSITIVE`。因此1440/T12=`UNRESOLVED`，`entry_to_2880_comparison=false`；2880、eps sensitivity、Lmin sensitivity均NOT_RUN。
+
+# 2026-09-12 Q2 M6A.7a handoff
+
+- 对`(1710,-50)`和`(1727.5,-42.5)`按公式径向投影到Lmin=50m圆；投影半径误差分别为2.13e-14m与4.97e-14m。
+- 两个点均使用fresh P1重新获得`CERTIFIED_STRICT`，完整M4/source/error/Gverify/replay全部PASS，并分别得到JR=6.36898981m与5.52514801m；official20和operational17均为true。
+- 结论：`boundary_witness_exists=true`，结合所有admissible点的Lmin约束，代表性案例`PROVED_T2_STAR_EQ_10`。此结论仅为VALIDATION/DIAGNOSTIC；1440 candidate-grid sensitivity和T12状态不在本轮改变，2.5m/2880均未运行。
