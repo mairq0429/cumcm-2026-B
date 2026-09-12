@@ -25,6 +25,8 @@ class Action:
     position: Point
     channel: int
     coverage_node: Optional[int] = None
+    provenance: Optional[str] = None
+    fallback_cell_id: Optional[tuple[int, int]] = None
 
 
 def ordered_pending_channels(pending: list[int], current_channel: int, node_index: int) -> list[int]:
@@ -39,10 +41,12 @@ def ordered_pending_channels(pending: list[int], current_channel: int, node_inde
 
 class CoverageScheduler:
     def next_action(self, state: Q3State) -> Optional[Action]:
+        if any(item.status == ChannelStatus.RECOVERY for item in state.channels.values()):
+            return None
         if state.same_point_clear_pending is not None:
             channel = state.same_point_clear_pending
             if state.channels[channel].status == ChannelStatus.CLEAR_READY:
-                return Action(ActionType.CLEAR, state.position, channel)
+                return Action(ActionType.CLEAR, state.position, channel, provenance="NEAR_CLEAR")
 
         # MEC clears are permitted only for a certificate bound to the exact
         # current observation and geometry revisions. Physical-only <=20 m
@@ -52,7 +56,7 @@ class CoverageScheduler:
             if certificate_is_current(state, channel):
                 target = state.channels[channel].clear_target
                 assert target is not None
-                return Action(ActionType.CLEAR, target, channel)
+                return Action(ActionType.CLEAR, target, channel, provenance="MEC_CERTIFIED_CLEAR")
 
         nodes = coverage_nodes()
         for node in range(N_COVERAGE_NODES):
@@ -64,4 +68,18 @@ class CoverageScheduler:
             if pending:
                 channel = ordered_pending_channels(pending, state.receiver_channel, node)[0]
                 return Action(ActionType.MEASURE, nodes[node], channel, coverage_node=node)
+        # Fallback is considered only after all mandatory coverage is complete.
+        from .fallback import build_fallback_candidates
+        for channel in range(1, N_CHANNELS + 1):
+            channel_state = state.channels[channel]
+            if channel_state.status != ChannelStatus.DETECTED or not channel_state.positive_evidence:
+                continue
+            candidates = build_fallback_candidates(
+                getattr(channel_state, "outer", None).boxes if getattr(channel_state, "outer", None) else (),
+                current_position=state.position,
+            )
+            attempted = getattr(channel_state, "attempted_cell_ids", set())
+            for candidate in candidates:
+                if candidate.cell_id not in attempted:
+                    return Action(ActionType.CLEAR, candidate.center, channel, provenance="FALLBACK_CLEAR", fallback_cell_id=candidate.cell_id)
         return None

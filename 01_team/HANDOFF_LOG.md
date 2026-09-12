@@ -87,3 +87,9 @@
 - 安全判据：`r_upper=r_mec+EPS_MEC`；只有 `r_upper<=17 m` 可绑定 `CLEAR_READY`，`<=20 m` 仅为物理诊断。证书绑定 observation/geometry revision；新观测或未知执行状态使旧证书失效。
 - 验证：C07/C08、M01--M07、500 组 finite-set oracle、1000 组 fixed-R+DIRECTION+NO_SIGNAL+NEAR 联合 OUTER certificate 均 PASS；1000 个 operational certificate 中真源距离超过17m失败数为0。
 - 异常：已认证 clear 若返回 accepted `no_target_in_range`，记录 `CERTIFIED_CLEAR_CONTRADICTION`（certificate、OUTER、observations、response 快照）并进入 RECOVERY；不降低证书标准。
+
+# 2026-09-12 Q3I-05-Lite handoff
+
+- 已实现固定 `h=17*sqrt(2)` 网格 fallback、edge/corner intersection 保留、attempted-cell 去重与 fallback exhaustion recovery。
+- 已实现 truth-blind P0 runner：enter → deterministic coverage → observation/OUTER/MEC 更新 → provenance clear → fallback → terminal → exit，并输出 `actions.jsonl`。
+- Q3 专项 73/73、全仓库 174/174 PASS；200 组 fallback witness 与 100 组 synthetic fallback smoke PASS。整体 TESTED/VERIFIED 仍待官方 simulator smoke test。

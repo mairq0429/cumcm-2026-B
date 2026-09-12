@@ -16,6 +16,8 @@ from .protocol import (
 from .scheduler import Action, ActionType, CoverageScheduler
 from .observations import ObservationHistory
 from .state import ChannelStatus, Q3State
+from .fallback import FallbackCandidate, GRID_H, build_fallback_candidates
+from .runner import P0Runner
 
 __all__ = [
     "Action", "ActionKind", "ActionType", "ChannelStatus", "ClearResult",
@@ -24,4 +26,5 @@ __all__ = [
     "MECCircle", "NormalizedResponse", "ObservationHistory", "OuterResult", "Q3State",
     "certificate_from_outer", "coverage_nodes", "minimum_enclosing_circle",
     "normalize_response", "rebuild_outer_from_observations",
+    "FallbackCandidate", "GRID_H", "build_fallback_candidates", "P0Runner",
 ]

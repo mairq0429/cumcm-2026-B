@@ -36,6 +36,11 @@ class ChannelState:
     clear_certificate: Optional[Any] = None
     certificate_outer_snapshot: Optional[Any] = None
     recovery_history: list[dict[str, Any]] = field(default_factory=list)
+    outer: Optional[Any] = None
+    fallback_candidates: list[Any] = field(default_factory=list)
+    attempted_cell_ids: set[tuple[int, int]] = field(default_factory=set)
+    attempted_centers: list[Point] = field(default_factory=list)
+    fallback_responses: list[Any] = field(default_factory=list)
 
 
 @dataclass
@@ -90,7 +95,7 @@ class Q3State:
         self._refresh_absence(channel)
         return True
 
-    def apply_clear(self, response: NormalizedResponse) -> bool:
+    def apply_clear(self, response: NormalizedResponse, *, provenance: Optional[str] = None) -> bool:
         channel = response.channel
         if channel is None or channel not in self.channels:
             raise ValueError("clear response needs a valid channel")
@@ -127,6 +132,10 @@ class Q3State:
                 "observations": state.geometry_history,
                 "response": response,
             })
+        if response.clear_result == ClearResult.NO_TARGET_IN_RANGE and provenance == "NEAR_CLEAR":
+            state.recovery_history.append({
+                "status": "NEAR_CLEAR_CONTRADICTION", "response": response,
+            })
 
         if response.clear_result == ClearResult.SUCCESS:
             state.positive_evidence = True
@@ -134,7 +143,11 @@ class Q3State:
             if self.same_point_clear_pending == channel:
                 self.same_point_clear_pending = None
         elif response.clear_result in {ClearResult.NO_TARGET_IN_RANGE, ClearResult.OTHER_FAILURE}:
-            if response.clear_result == ClearResult.NO_TARGET_IN_RANGE:
+            if provenance == "FALLBACK_CLEAR":
+                if response.position is not None:
+                    state.attempted_centers.append(response.position)
+                state.fallback_responses.append(response)
+            if response.clear_result == ClearResult.NO_TARGET_IN_RANGE and provenance in {None, "FALLBACK_CLEAR"}:
                 state.geometry_history = state.geometry_history.commit_clear_no_target(self, response)
             state.status = ChannelStatus.RECOVERY
             if self.same_point_clear_pending == channel:
