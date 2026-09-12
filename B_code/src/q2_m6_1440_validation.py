@@ -59,6 +59,62 @@ def selected_verification_pass(result: dict) -> bool:
     )
 
 
+def assess_unresolved_competition(final_cells, selected, S1) -> dict:
+    """Hard gate: unresolved receive cells must not be able to beat the selected C20 point.
+
+    For a cell with center c and half-diagonal r, every point in the cell obeys
+    T2 >= max(0, ||c-S1||-r)/5.  The comparison tolerance intentionally matches
+    the existing objective-refinement tolerance in q2_selection.
+    """
+
+    uncertain = []
+    for cell in final_cells:
+        status = None if cell.certificate is None else cell.certificate.get("status")
+        if status not in {"UNRESOLVED", "UNCERTAIN_BOUNDARY"}:
+            continue
+        x0, y0, x1, y1 = cell.bbox
+        half_diagonal = 0.5 * math.hypot(x1 - x0, y1 - y0)
+        lower_t2 = max(0.0, math.hypot(cell.center[0] - S1[0], cell.center[1] - S1[1]) - half_diagonal) / q2.SPEED_MPS
+        uncertain.append({
+            "cell_id": cell.cell_id,
+            "certificate_status": status,
+            "center": list(cell.center),
+            "bbox": list(cell.bbox),
+            "half_diagonal_m": half_diagonal,
+            "T2_lower_s": lower_t2,
+        })
+
+    if not uncertain:
+        return {
+            "status": "PASS",
+            "uncertain_count": 0,
+            "competitive_count": 0,
+            "selected_T2_s": None if selected is None else selected.T2,
+            "T2_tolerance_s": None,
+            "cells": [],
+        }
+
+    if selected is None or selected.official20 is not True:
+        competitive = uncertain
+        tolerance = None
+        mode = "NO_FINAL_C20_ALL_UNCERTAIN_COMPETITIVE"
+    else:
+        tolerance = 1.0e-3 * max(1.0, selected.T2)
+        competitive = [item for item in uncertain if item["T2_lower_s"] <= selected.T2 + tolerance]
+        mode = "C20_T2_LOWER_BOUND"
+
+    return {
+        "status": "PASS" if not competitive else "UNRESOLVED_COMPETITIVE",
+        "mode": mode,
+        "uncertain_count": len(uncertain),
+        "competitive_count": len(competitive),
+        "selected_T2_s": None if selected is None else selected.T2,
+        "T2_tolerance_s": tolerance,
+        "cells": uncertain,
+        "competitive_cell_ids": [item["cell_id"] for item in competitive],
+    }
+
+
 def run_1440_baseline(output_dir="03_results/q2/m6_validation/1440_baseline") -> dict:
     directory = Path(output_dir)
     started = time.perf_counter()
@@ -109,6 +165,9 @@ def run_1440_baseline(output_dir="03_results/q2/m6_validation/1440_baseline") ->
     _write(directory / "selected_verification.json", verification_payload)
 
     final_cells = [cell for cell in search["region_cells"] if cell.level_m == 5.0]
+    unresolved_gate = assess_unresolved_competition(final_cells, selected, S1)
+    _write(directory / "unresolved_competitive_gate.json", unresolved_gate)
+
     features = []
     for cell in final_cells:
         status = None if cell.certificate is None else cell.certificate.get("status")
@@ -133,6 +192,8 @@ def run_1440_baseline(output_dir="03_results/q2/m6_validation/1440_baseline") ->
         warnings.append(convergence["status"])
     if verification_payload["gate"] != "PASS":
         warnings.append("SELECTED_REVALIDATION_FAIL")
+    if unresolved_gate["status"] != "PASS":
+        warnings.append("UNRESOLVED_COMPETITIVE")
     runtime = time.perf_counter() - started
     status = "PASS" if selected is not None and not warnings and all(level in levels for level in (50.0,20.0,5.0)) else "FAIL"
     summary = {
@@ -147,6 +208,9 @@ def run_1440_baseline(output_dir="03_results/q2/m6_validation/1440_baseline") ->
         "Gverify": None if verification is None else verification["gverify"]["status"],
         "replay": None if verification is None else {k:v["status"] for k,v in verification["replay"].items()},
         "monotone": verification is not None and "NON_MONOTONE_REFINEMENT" not in verification["warnings"],
+        "unresolved_competitive_gate": unresolved_gate["status"],
+        "unresolved_count": unresolved_gate["uncertain_count"],
+        "competitive_unresolved_count": unresolved_gate["competitive_count"],
         "Fstrict_component_count": levels.get(5.0, {}).get("Fstrict_component_count"),
         "runtime_s": runtime, "warnings": warnings,
         "T12_status": "UNRESOLVED_PENDING_2880" if status == "PASS" else "UNRESOLVED",
@@ -157,4 +221,7 @@ def run_1440_baseline(output_dir="03_results/q2/m6_validation/1440_baseline") ->
     return summary
 
 
-__all__ = ["assess_20_to_5", "run_1440_baseline", "selected_verification_pass"]
+__all__ = [
+    "assess_20_to_5", "assess_unresolved_competition",
+    "run_1440_baseline", "selected_verification_pass",
+]
