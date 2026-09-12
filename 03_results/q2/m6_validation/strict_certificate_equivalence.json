@@ -1,0 +1,374 @@
+{
+  "artifact_status": "VALIDATION / NOT_FINAL_Q2_RESULT",
+  "status": "PASS",
+  "case_count": 30,
+  "difference_count": 0,
+  "conflict_count": 0,
+  "cases": [
+    {
+      "S2": [
+        1500.0,
+        100.0
+      ],
+      "legacy_status": "CERTIFIED_STRICT",
+      "accelerated_status": "CERTIFIED_STRICT",
+      "legacy_L_rec_m": -704.7046893784773,
+      "legacy_U_rec_m": -615.8124152285883,
+      "accelerated_L_rec_m": -704.7046893784773,
+      "accelerated_U_rec_m": -615.8124152285883
+    },
+    {
+      "S2": [
+        1550.0,
+        -100.0
+      ],
+      "legacy_status": "CERTIFIED_STRICT",
+      "accelerated_status": "CERTIFIED_STRICT",
+      "legacy_L_rec_m": -751.315531986945,
+      "legacy_U_rec_m": -662.423257837056,
+      "accelerated_L_rec_m": -751.315531986945,
+      "accelerated_U_rec_m": -662.423257837056
+    },
+    {
+      "S2": [
+        1600.0,
+        100.0
+      ],
+      "legacy_status": "CERTIFIED_STRICT",
+      "accelerated_status": "CERTIFIED_STRICT",
+      "legacy_L_rec_m": -795.931960073347,
+      "legacy_U_rec_m": -707.039685923458,
+      "accelerated_L_rec_m": -795.931960073347,
+      "accelerated_U_rec_m": -707.039685923458
+    },
+    {
+      "S2": [
+        1650.0,
+        -100.0
+      ],
+      "legacy_status": "CERTIFIED_STRICT",
+      "accelerated_status": "CERTIFIED_STRICT",
+      "legacy_L_rec_m": -837.8629928875562,
+      "legacy_U_rec_m": -748.9707187376672,
+      "accelerated_L_rec_m": -837.8629928875562,
+      "accelerated_U_rec_m": -748.9707187376672
+    },
+    {
+      "S2": [
+        1700.0,
+        100.0
+      ],
+      "legacy_status": "CERTIFIED_STRICT",
+      "accelerated_status": "CERTIFIED_STRICT",
+      "legacy_L_rec_m": -873.1606947198521,
+      "legacy_U_rec_m": -779.7783091991519,
+      "accelerated_L_rec_m": -873.1606947198521,
+      "accelerated_U_rec_m": -779.7783091991519
+    },
+    {
+      "S2": [
+        1750.0,
+        -100.0
+      ],
+      "legacy_status": "CERTIFIED_STRICT",
+      "accelerated_status": "CERTIFIED_STRICT",
+      "legacy_L_rec_m": -896.4005139017324,
+      "legacy_U_rec_m": -788.3142201347034,
+      "accelerated_L_rec_m": -896.4005139017324,
+      "accelerated_U_rec_m": -788.3142201347034
+    },
+    {
+      "S2": [
+        1800.0,
+        100.0
+      ],
+      "legacy_status": "CERTIFIED_STRICT",
+      "accelerated_status": "CERTIFIED_STRICT",
+      "legacy_L_rec_m": -879.3304094789736,
+      "legacy_U_rec_m": -774.7987487903293,
+      "accelerated_L_rec_m": -879.3304094789736,
+      "accelerated_U_rec_m": -774.7987487903293
+    },
+    {
+      "S2": [
+        1850.0,
+        -100.0
+      ],
+      "legacy_status": "CERTIFIED_STRICT",
+      "accelerated_status": "CERTIFIED_STRICT",
+      "legacy_L_rec_m": -846.7189426441221,
+      "legacy_U_rec_m": -743.1858723365193,
+      "accelerated_L_rec_m": -846.7189426441221,
+      "accelerated_U_rec_m": -743.1858723365193
+    },
+    {
+      "S2": [
+        3000.0,
+        200.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 282.4498107824859,
+      "legacy_U_rec_m": 382.46829589276706,
+      "accelerated_L_rec_m": 282.4498107824859,
+      "accelerated_U_rec_m": 382.46829589276706
+    },
+    {
+      "S2": [
+        3030.0,
+        -200.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 311.91160097696684,
+      "legacy_U_rec_m": 412.22398513886594,
+      "accelerated_L_rec_m": 311.91160097696684,
+      "accelerated_U_rec_m": 412.22398513886594
+    },
+    {
+      "S2": [
+        3060.0,
+        200.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 341.7442070588693,
+      "legacy_U_rec_m": 441.7574545668757,
+      "accelerated_L_rec_m": 341.7442070588693,
+      "accelerated_U_rec_m": 441.7574545668757
+    },
+    {
+      "S2": [
+        3090.0,
+        -200.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 371.244707839541,
+      "legacy_U_rec_m": 471.539467461933,
+      "accelerated_L_rec_m": 371.244707839541,
+      "accelerated_U_rec_m": 471.539467461933
+    },
+    {
+      "S2": [
+        3120.0,
+        200.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 401.09868216911605,
+      "legacy_U_rec_m": 501.10762026349437,
+      "accelerated_L_rec_m": 401.09868216911605,
+      "accelerated_U_rec_m": 501.10762026349437
+    },
+    {
+      "S2": [
+        3150.0,
+        -200.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 430.63344319149337,
+      "legacy_U_rec_m": 530.9124769304734,
+      "accelerated_L_rec_m": 430.63344319149337,
+      "accelerated_U_rec_m": 530.9124769304734
+    },
+    {
+      "S2": [
+        3180.0,
+        200.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 460.50591138003756,
+      "legacy_U_rec_m": 560.5112984677913,
+      "accelerated_L_rec_m": 460.50591138003756,
+      "accelerated_U_rec_m": 560.5112984677913
+    },
+    {
+      "S2": [
+        3210.0,
+        -200.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 490.0711556090025,
+      "legacy_U_rec_m": 590.3360863459737,
+      "accelerated_L_rec_m": 490.0711556090025,
+      "accelerated_U_rec_m": 590.3360863459737
+    },
+    {
+      "S2": [
+        2680.0,
+        25.0
+      ],
+      "legacy_status": "CERTIFIED_STRICT",
+      "accelerated_status": "CERTIFIED_STRICT",
+      "legacy_L_rec_m": -31.105126581089507,
+      "legacy_U_rec_m": -2.989906017374679,
+      "accelerated_L_rec_m": -31.105126581089507,
+      "accelerated_U_rec_m": -2.989906017374679
+    },
+    {
+      "S2": [
+        2690.0,
+        -25.0
+      ],
+      "legacy_status": "CERTIFIED_STRICT",
+      "accelerated_status": "CERTIFIED_STRICT",
+      "legacy_L_rec_m": -16.415940875337924,
+      "legacy_U_rec_m": -0.24639746850885302,
+      "accelerated_L_rec_m": -16.415940875337924,
+      "accelerated_U_rec_m": -0.24639746850885302
+    },
+    {
+      "S2": [
+        2699.0,
+        25.0
+      ],
+      "legacy_status": "CERTIFIED_STRICT",
+      "accelerated_status": "CERTIFIED_STRICT",
+      "legacy_L_rec_m": -7.41941696520837,
+      "legacy_U_rec_m": -0.437462009612851,
+      "accelerated_L_rec_m": -7.41941696520837,
+      "accelerated_U_rec_m": -0.437462009612851
+    },
+    {
+      "S2": [
+        2700.0,
+        -25.0
+      ],
+      "legacy_status": "CERTIFIED_STRICT",
+      "accelerated_status": "CERTIFIED_STRICT",
+      "legacy_L_rec_m": -5.088330297147536,
+      "legacy_U_rec_m": -0.532072196753699,
+      "accelerated_L_rec_m": -5.088330297147536,
+      "accelerated_U_rec_m": -0.532072196753699
+    },
+    {
+      "S2": [
+        2701.0,
+        25.0
+      ],
+      "legacy_status": "CERTIFIED_STRICT",
+      "accelerated_status": "CERTIFIED_STRICT",
+      "legacy_L_rec_m": -4.088554971001827,
+      "legacy_U_rec_m": -0.9781428113814252,
+      "accelerated_L_rec_m": -4.088554971001827,
+      "accelerated_U_rec_m": -0.9781428113814252
+    },
+    {
+      "S2": [
+        2710.0,
+        -25.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 3.577720505385855,
+      "legacy_U_rec_m": 21.444477493687046,
+      "accelerated_L_rec_m": 4.908544026108643,
+      "accelerated_U_rec_m": 8.019472689468436
+    },
+    {
+      "S2": [
+        2720.0,
+        25.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 8.882049608952457,
+      "legacy_U_rec_m": 36.99678081815067,
+      "accelerated_L_rec_m": 14.905568955399417,
+      "accelerated_U_rec_m": 18.015953585771733
+    },
+    {
+      "S2": [
+        2730.0,
+        -25.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 1.1455244424313378,
+      "legacy_U_rec_m": 59.47885777576482,
+      "accelerated_L_rec_m": 24.90247562789341,
+      "accelerated_U_rec_m": 28.01336581038219
+    },
+    {
+      "S2": [
+        700.0,
+        600.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 233.62786531651227,
+      "legacy_U_rec_m": 322.52013946640125,
+      "accelerated_L_rec_m": 238.39053255066142,
+      "accelerated_U_rec_m": 305.05719921732793
+    },
+    {
+      "S2": [
+        700.0,
+        -600.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 233.43919253739023,
+      "legacy_U_rec_m": 322.3314666872792,
+      "accelerated_L_rec_m": 238.39053255066142,
+      "accelerated_U_rec_m": 305.05719921732793
+    },
+    {
+      "S2": [
+        1000.0,
+        900.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 189.6585268547567,
+      "legacy_U_rec_m": 278.8340865034869,
+      "accelerated_L_rec_m": 193.15175527302927,
+      "accelerated_U_rec_m": 259.8184219396958
+    },
+    {
+      "S2": [
+        1000.0,
+        -900.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 189.36504401344382,
+      "legacy_U_rec_m": 279.4318684854794,
+      "accelerated_L_rec_m": 193.15175527302927,
+      "accelerated_U_rec_m": 259.8184219396958
+    },
+    {
+      "S2": [
+        2300.0,
+        900.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 64.02948903653532,
+      "legacy_U_rec_m": 168.47295554894401,
+      "accelerated_L_rec_m": 78.67952586687557,
+      "accelerated_U_rec_m": 104.42600507053976
+    },
+    {
+      "S2": [
+        2300.0,
+        -900.0
+      ],
+      "legacy_status": "CERTIFIED_VIOLATION",
+      "accelerated_status": "CERTIFIED_VIOLATION",
+      "legacy_L_rec_m": 63.04475246715947,
+      "legacy_U_rec_m": 169.13309531679863,
+      "accelerated_L_rec_m": 78.67651060512412,
+      "accelerated_U_rec_m": 104.42600507053976
+    }
+  ],
+  "differences": [],
+  "conflicts": [],
+  "runtime_s": 0.07872199999837903,
+  "strict_physical_threshold_m": 0.0,
+  "eps_rec_cert_m": 0.001
+}

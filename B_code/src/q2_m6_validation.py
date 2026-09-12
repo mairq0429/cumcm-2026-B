@@ -7,6 +7,7 @@ They do not alter the zero receive threshold, selection rule, or risk semantics.
 from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass, replace
+import copy
 import json
 import math
 from pathlib import Path
@@ -282,11 +283,20 @@ class _ValidationCache:
         answer["eps_rec_cert_m"] = config.eps_rec_cert_m
         return answer
 
-    def evaluate(self, S2, S1, P1, config):
+    def evaluate(self, S2, S1, P1, config, certificate_override=None):
         key = (tuple(S2), tuple(S1), config.circle_sides)
         if key not in self.m4:
-            self.m4[key] = evaluate_candidate_nested(S2, S1, P1, config)
-        return self.m4[key]
+            self.m4[key] = evaluate_candidate_nested(
+                S2, S1, P1, config, certificate_override=certificate_override
+            )
+        result = copy.deepcopy(self.m4[key])
+        if certificate_override is not None:
+            certificate = dict(certificate_override)
+            result["certificate"] = certificate
+            result["candidate"].certificate = certificate
+            result["eps_rec_cert_m"] = certificate["eps_rec_cert_m"]
+            result["eps_rec_cert_source"] = certificate["eps_rec_cert_source"]
+        return result
 
 
 def _write(directory: Path, name: str, payload: Mapping[str, object]) -> None:
@@ -356,6 +366,7 @@ def run_m6a_validation(
     omega_move: Optional[Sequence[Point]] = None,
     search_fn: Callable = search_strict_candidates,
     progress_fn: Optional[Callable[[str], None]] = None,
+    certificate_engine_factory: Optional[Callable] = None,
 ) -> dict:
     """Run M6A on a clearly labelled representative case."""
 
@@ -363,6 +374,7 @@ def run_m6a_validation(
     directory = Path(output_dir)
     cache = _ValidationCache()
     search_cache = {}
+    engine_cache = {}
     base = Q2Config(omega_move=omega_move)
 
     def run(config: Q2Config, label: str) -> tuple[dict, dict]:
@@ -375,9 +387,18 @@ def run_m6a_validation(
             progress_fn(f"START {label}")
         run_started = time.perf_counter()
         p1 = build_P1_bound(S1, theta1_hat_deg, config)
+        engine = None
+        if certificate_engine_factory is not None:
+            engine_key = (config.circle_sides, config.eps_rec_cert_m)
+            if engine_key not in engine_cache:
+                engine_cache[engine_key] = certificate_engine_factory(p1, S1, config)
+            engine = engine_cache[engine_key]
         search = search_fn(
             S1, theta1_hat_deg, config, P1_bound=p1,
-            certificate_fn=cache.certificate, m4_fn=cache.evaluate,
+            certificate_fn=cache.certificate,
+            certificate_batch_engine=engine,
+            m4_fn=cache.evaluate,
+            pass_certificate_to_m4=engine is not None,
         )
         snapshot = summarize_search(search)
         snapshot.update({

@@ -14,7 +14,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 |
 | Q2-I-001 | M6 尚未完成 | M5B Garea/Qarea、风险阈值 shortlist 与 received-subset worst 已完成；正式全域结果、1440→2880、Lmin 敏感性和整体收敛仍待实现 | C | OPEN | 后续轮次 | Q2-robust-selection-v2.1 | eps_rec_cert 已冻结为数值认证精度且物理阈值为 0；仍需正式全域 1e-4/1e-3/1e-2 敏感性。area_q_tol 仍为 implementation parameter；不得在完成前声明 Q2 TESTED/VERIFIED |
-| Q2-I-002 | M6A 全域运行超出有界窗口 | 代表性案例无 Omega 的 1440 基线在 300 s 内未完成；3844 个 50 m 单元中 1190 个中心需连续证书，当前 T12=UNRESOLVED | C | OPEN | M6A 性能加固 | Q2-robust-selection-v2.1 | 未降低认证标准；需优化/并行连续证书后重跑 circle、candidate、eps-cert、Lmin、Gverify/replay 全门控 |
+| Q2-I-002 | M6A 全域运行超出有界窗口 | 原 1440 基线 300 s 未完成；M6A.1 已在相同 50 m stage 以 anchor/shared-tree 将 1190 full estimate 降为 82 calls，总耗时约 1.24 s | C | OPEN | 完整重跑 M6A | Q2-robust-selection-v2.1 | 性能 benchmark PASS 且未降低标准；issue 保持 OPEN，直至 circle、candidate、eps-cert、Lmin、Gverify/replay 全门控重跑完成，当前 T12=UNRESOLVED |
 
 ## P2
 

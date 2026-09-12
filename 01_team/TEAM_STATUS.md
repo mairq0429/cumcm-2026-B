@@ -11,7 +11,7 @@
 
 ## 进行中
 
-- Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M5B 已实现，包括 M5A.1 双细化链与 M5B geometric risk-area engine；strict certificate 已按零物理阈值与四态区间证书完成 MODEL_ALIGNED。M6A 判定/输出框架已实现，但正式代表性全域运行因 300 s 窗口耗尽而 UNRESOLVED；M6A 未完成，M6B 不得开始。
+- Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M5B 已实现，strict certificate 已 MODEL_ALIGNED。M6A.1 anchor propagation + shared physical tree 已通过 50 m benchmark（1190→82 full calls，约 1.24 s）；正式 M6A 尚未重跑，T12 仍 UNRESOLVED，M6B 不得开始。
 
 ## 待验证
 
@@ -19,7 +19,7 @@
 
 ## 阻塞问题
 
-- 无模型冲突；M6A 当前受全域 strict certificate 运行量阻塞。启动时仓库已有与本任务不重叠的 tools/results 未提交改动，须继续保留。
+- 无模型冲突；strict certificate 的 50 m 性能瓶颈已显著缓解，但 Q2-I-002 保持 OPEN，直到完整 M6A 重跑通过。启动时仓库已有与本任务不重叠的 tools/results 未提交改动，须继续保留。
 
 ## 今天必须完成
 

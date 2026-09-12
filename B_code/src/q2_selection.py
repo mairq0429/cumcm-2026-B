@@ -177,6 +177,7 @@ class CandidateCell:
     sample_counterexample: Optional[Point] = None
     boundary_flag: bool = False
     cell_exclusion_certified: bool = False
+    whole_cell_strict_certified: bool = False
     parent_ids: tuple[str, ...] = ()
     objective_parent_ids: tuple[str, ...] = ()
     region_refinement: bool = True
@@ -207,6 +208,7 @@ class CandidateCell:
             "T2": None if candidate is None else candidate.T2,
             "boundary_flag": self.boundary_flag,
             "cell_exclusion_certified": self.cell_exclusion_certified,
+            "whole_cell_strict_certified": self.whole_cell_strict_certified,
             "sample_counterexample": None if self.sample_counterexample is None else list(self.sample_counterexample),
             "parent_ids": list(self.parent_ids),
             "objective_parent_ids": list(self.objective_parent_ids),
@@ -1463,6 +1465,7 @@ def evaluate_candidate_nested(
     config: Optional[Q2Config] = None,
     *,
     source_levels_m: Sequence[float] = (20.0, 10.0, 5.0),
+    certificate_override: Optional[Mapping[str, object]] = None,
 ) -> dict:
     """Run the M4 source-outer/error-inner deterministic convergence engine."""
 
@@ -1471,7 +1474,9 @@ def evaluate_candidate_nested(
     levels = tuple(float(value) for value in source_levels_m)
     if len(levels) < 2 or any(value <= 0.0 for value in levels):
         raise ValueError("at least two positive source levels are required")
-    certificate = certified_strict(s2, P1_bound, s1, cfg)
+    certificate = dict(certificate_override) if certificate_override is not None else certified_strict(
+        s2, P1_bound, s1, cfg
+    )
     warnings: list[str] = []
     error_history: list[dict] = []
     source_history: list[dict] = []
@@ -2065,6 +2070,9 @@ def _write_m5a_outputs(output_dir: str | Path, result: dict) -> None:
     strict_records = [
         cell.to_record() for cell in final_cells
         if _cell_class(cell) == "strict" and cell.center_in_move_domain
+    ] + [
+        cell.to_record() for cell in all_cells
+        if cell.whole_cell_strict_certified and cell.level_m != final_level
     ]
     for filename, rows in (("candidate_status.csv", records), ("strict_candidates.csv", strict_records)):
         fieldnames = list(rows[0]) if rows else list(CandidateCell("", 0, 0, 0, (0, 0), (0, 0, 0, 0)).to_record())
@@ -2074,7 +2082,11 @@ def _write_m5a_outputs(output_dir: str | Path, result: dict) -> None:
             writer.writerows(rows)
 
     features = []
-    for cell in final_cells:
+    representation_cells = final_cells + [
+        cell for cell in all_cells
+        if cell.whole_cell_strict_certified and cell.level_m != final_level
+    ]
+    for cell in representation_cells:
         properties = cell.to_record()
         properties.update({
             "artifact_status": "DEVELOPMENT",
@@ -2083,7 +2095,12 @@ def _write_m5a_outputs(output_dir: str | Path, result: dict) -> None:
             "eps_rec_cert_source": result["eps_rec_cert_source"],
             "eps_rec_cert_status": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         })
-        if _cell_class(cell) == "strict" and cell.center_in_move_domain:
+        if cell.whole_cell_strict_certified:
+            x0, y0, x1, y1 = cell.bbox
+            geometry = {"type": "Polygon", "coordinates": [[[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]]}
+            properties["representation"] = "certified_strict_cell"
+            features.append({"type": "Feature", "geometry": geometry, "properties": properties})
+        elif _cell_class(cell) == "strict" and cell.center_in_move_domain:
             geometry = {"type": "Point", "coordinates": list(cell.center)}
             properties["representation"] = "point_certified"
             features.append({"type": "Feature", "geometry": geometry, "properties": properties})
@@ -2132,7 +2149,9 @@ def search_strict_candidates(
     P1_bound: Optional[Mapping[str, object]] = None,
     sample_scenarios: Optional[Iterable[SourceScenario]] = None,
     certificate_fn=certified_strict,
+    certificate_batch_engine=None,
     m4_fn=evaluate_candidate_nested,
+    pass_certificate_to_m4: bool = False,
     output_dir: Optional[str | Path] = None,
 ) -> dict:
     """Run the M5A 50->20->5 m point-certified strict search."""
@@ -2179,6 +2198,30 @@ def search_strict_candidates(
             "cell_exclusion_certified": 0,
         }
         cell_half_diagonal = math.sqrt(2.0) * level / 2.0
+        batch_certificates = {}
+        if certificate_batch_engine is not None:
+            batch_points = []
+            for cell in cells:
+                if not cell.center_in_move_domain or _distance(cell.center, s1) < cfg.lmin_m:
+                    continue
+                if not any(
+                    sample_receive_screen(cell.center, scenario.G, s1, cell_half_diagonal)["point_violation"]
+                    for scenario in samples
+                ):
+                    batch_points.append(cell.center)
+            batch_result = certificate_batch_engine.certify_points(batch_points, cell_half_diagonal)
+            batch_certificates = batch_result.pop("certificates")
+            counters.update({
+                "anchor_count": batch_result["anchor_count"],
+                "full_certificate_calls": batch_result["full_certificate_calls"],
+                "propagated_strict_points": batch_result["propagated_strict_points"],
+                "propagated_violation_points": batch_result["propagated_violation_points"],
+                "whole_cell_strict_by_anchor": batch_result["whole_cell_strict_by_anchor"],
+                "whole_cell_violation_by_anchor": batch_result["whole_cell_violation_by_anchor"],
+                "shared_tree_nodes": batch_result["shared_tree_nodes"],
+                "tree_nodes_created": batch_result["tree_nodes_created"],
+                "tree_nodes_reused": batch_result["tree_nodes_reused"],
+            })
         for cell in cells:
             if not cell.center_in_move_domain:
                 cell.status = "OMEGA_BOUNDARY_UNRESOLVED"
@@ -2217,14 +2260,20 @@ def search_strict_candidates(
                 else:
                     cell.boundary_flag = True
                 continue
-            certificate = certificate_fn(cell.center, p1, s1, cfg)
-            counters["certificate_calls"] += 1
+            certificate = batch_certificates.get(cell.center)
+            if certificate is None:
+                certificate = certificate_fn(cell.center, p1, s1, cfg)
+            if not certificate.get("reason", "").endswith("_PROPAGATED"):
+                counters["certificate_calls"] += 1
             cell.certificate = certificate
             if certificate["status"] == "CERTIFIED_VIOLATION":
                 cell.status = "CERTIFIED_VIOLATION"
                 counters["certificate_violation"] += 1
                 counterexample = certificate.get("counterexample")
-                if counterexample is not None and sample_receive_screen(
+                if certificate.get("whole_cell_status") == "WHOLE_CELL_CERTIFIED_VIOLATION":
+                    cell.cell_exclusion_certified = True
+                    counters["cell_exclusion_certified"] += 1
+                elif counterexample is not None and sample_receive_screen(
                     cell.center, counterexample, s1, cell_half_diagonal
                 )["whole_cell_violation"]:
                     cell.cell_exclusion_certified = True
@@ -2239,9 +2288,14 @@ def search_strict_candidates(
                 counters["certificate_uncertain_boundary"] += 1
             elif certificate["status"] == "CERTIFIED_STRICT":
                 counters["certificate_strict"] += 1
+                if certificate.get("whole_cell_status") == "WHOLE_CELL_CERTIFIED_STRICT":
+                    cell.whole_cell_strict_certified = True
                 if cell.objective_refinement:
                     counters["M4_evaluated"] += 1
-                    m4_result = m4_fn(cell.center, s1, p1, cfg)
+                    m4_result = (
+                        m4_fn(cell.center, s1, p1, cfg, certificate_override=certificate)
+                        if pass_certificate_to_m4 else m4_fn(cell.center, s1, p1, cfg)
+                    )
                     cell.m4_result = m4_result
                     if m4_result["status"] == "PASS":
                         cell.status = "STRICT_INTERIOR"
@@ -2283,7 +2337,10 @@ def search_strict_candidates(
             selected_ids = {
                 cell.cell_id for index in selected_component_indices for cell in components[index]
             }
-            region_parents = [cell for cell in cells if not cell.cell_exclusion_certified]
+            region_parents = [
+                cell for cell in cells
+                if not cell.cell_exclusion_certified and not cell.whole_cell_strict_certified
+            ]
             if c20_cells:
                 best_t2 = min(cell.m4_result["candidate"].T2 for cell in c20_cells)
                 objective_parents = [
