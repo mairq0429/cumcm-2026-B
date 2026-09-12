@@ -1,0 +1,14 @@
+{
+  "case": "REPRESENTATIVE_CASE / NOT_UNIQUE_PROBLEM_ANSWER",
+  "level_50_runtime_s": 9.335388899999089,
+  "level_20_runtime_s": 13.6,
+  "level_5_runtime_s": ">=300",
+  "total_runtime_s": ">=323",
+  "watchdog": {
+    "per_level_s": 300,
+    "total_s": 600,
+    "triggered": "level_5"
+  },
+  "standards_reduced": false,
+  "artifact_status": "VALIDATION / NOT_FINAL_Q2_RESULT"
+}

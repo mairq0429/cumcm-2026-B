@@ -2195,6 +2195,7 @@ def search_strict_candidates(
     pass_certificate_to_m4: bool = False,
     stop_after_level_m: Optional[float] = None,
     lazy_objective: bool = True,
+    level_checkpoint_fn=None,
     output_dir: Optional[str | Path] = None,
 ) -> dict:
     """Run the M5A 50->20->5 m point-certified strict search."""
@@ -2440,6 +2441,8 @@ def search_strict_candidates(
         level_diagnostics.append(counters)
         region_cells.extend(cells)
         objective_cells.extend(cell for cell in cells if cell.objective_refinement)
+        if level_checkpoint_fn is not None:
+            level_checkpoint_fn(level, cells, counters, c20_cells)
         if level != levels[-1]:
             selected_ids = {
                 cell.cell_id for index in selected_component_indices for cell in components[index]

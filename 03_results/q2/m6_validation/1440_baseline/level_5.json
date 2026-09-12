@@ -1,0 +1,9 @@
+{
+  "grid_level_m": 5.0,
+  "status": "UNRESOLVED",
+  "reason": "LEVEL_RUNTIME_LIMIT_EXCEEDED",
+  "watchdog_s": 300.0,
+  "completed": false,
+  "diagnostics": null,
+  "artifact_status": "VALIDATION / NOT_FINAL_Q2_RESULT"
+}
