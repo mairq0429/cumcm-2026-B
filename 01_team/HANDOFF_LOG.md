@@ -32,6 +32,17 @@
 - 验证方法：Q3I-02 S01--S18、C01 integration、C02、C03、C06、七点坐标与 dense-grid sanity、历史 console clear 计数 replay。
 - 状态：阶段 COMPLETE；整体 CODED=NO / TESTED=NO / VERIFIED=NO。
 
+- handoff id：Q3I-03-C-MW-20260912-01
+- 时间：2026-09-12
+- 发送人：C（编程实现）
+- 接收人：M/W（建模/写作）
+- 问题编号：Q3
+- 版本：Q3-improved-v1 / Q3I-03
+- 结论：完成不可变频道几何观测、固定未知接收半径点级一致性、保守整盒排除与可预算重建的 adaptive axis-aligned OUTER；未实现 MEC、fallback、主动选点或 P1。
+- 安全不变量：保留盒仅表示 RETAINED_UNCERTAIN；预算耗尽保留粗盒；clear `no_target_in_range` 仅经 Q3I-02 先验存在性 guard 后进入几何历史。
+- 验证方法：C01 box regression、C04/C05、全部要求的距离/严格端点边界、1000-case 独立 fixed-R point oracle、1000-case 逐观测 true-source OUTER containment、确定性 rebuild 与 budget-zero 保留测试。
+- 状态：Q3I-03 COMPLETE；Q3I-04 NOT_STARTED；整体 CODED=NO / TESTED=NO / VERIFIED=NO。
+
 - handoff id：待填写
 - 时间：待填写
 - 发送人：待填写

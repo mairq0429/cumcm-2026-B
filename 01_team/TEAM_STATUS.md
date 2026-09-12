@@ -11,9 +11,10 @@
 
 ## 进行中
 
-- Q3-improved-v1: Q3I-01 COMPLETE; Q3I-02 COMPLETE after its dedicated tests;
-  Q3I-03 NOT_STARTED. Scope is Problem 3 omnidirectional sources only. Overall
-  status remains CODED=NO, TESTED=NO, VERIFIED=NO.
+- Q3-improved-v1: Q3I-01 COMPLETE; Q3I-02 COMPLETE; Q3I-03 COMPLETE after
+  fixed-radius point oracle and conservative OUTER containment tests; Q3I-04
+  NOT_STARTED. Scope is Problem 3 omnidirectional sources only. Overall status
+  remains CODED=NO, TESTED=NO, VERIFIED=NO.
 
 - Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M5B 已实现，strict certificate 已 MODEL_ALIGNED。M6A.1 anchor propagation + shared physical tree 已通过 50 m benchmark（1190→82 full calls，约 1.24 s）。正式 M6A 已按加速路径重启，但 1440 完整 50→20→5 配置在 300 s watchdog 内未完成；新瓶颈为粗层大量完整 M4 评价。T12 仍 UNRESOLVED，M6B 不得开始。
 - Q2 M6A.2 lazy objective benchmark：1440/50 m 全域的 1184 strict objective candidates 仅调用 6 次完整 M4，2 次由 cheap C20 下界拒绝，1176 次在已有 C20 后按严格 T2 次序跳过；总耗时约 9.54 s。该结果只覆盖 50 m benchmark，尚未重跑完整 M6A，T12 仍 UNRESOLVED。

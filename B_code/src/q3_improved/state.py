@@ -8,6 +8,7 @@ from typing import Optional, Tuple
 
 from .config import N_CHANNELS
 from .coverage import CoverageMatrix
+from .observations import ObservationHistory
 from .protocol import ClearResult, ExecutionStatus, MeasureResult, NormalizedResponse
 
 
@@ -28,6 +29,7 @@ class ChannelState:
     status: ChannelStatus = ChannelStatus.UNKNOWN
     positive_evidence: bool = False
     observations: list[NormalizedResponse] = field(default_factory=list)
+    geometry_history: ObservationHistory = field(default_factory=ObservationHistory)
 
 
 @dataclass
@@ -63,6 +65,7 @@ class Q3State:
         if response.virtual_time is not None:
             self.virtual_time = response.virtual_time
         state.observations.append(response)
+        state.geometry_history = state.geometry_history.commit_measure(response)
         if coverage_node is not None:
             self.coverage.commit(channel, coverage_node, response)
 
@@ -106,6 +109,8 @@ class Q3State:
             if self.same_point_clear_pending == channel:
                 self.same_point_clear_pending = None
         elif response.clear_result in {ClearResult.NO_TARGET_IN_RANGE, ClearResult.OTHER_FAILURE}:
+            if response.clear_result == ClearResult.NO_TARGET_IN_RANGE:
+                state.geometry_history = state.geometry_history.commit_clear_no_target(self, response)
             state.status = ChannelStatus.RECOVERY
             if self.same_point_clear_pending == channel:
                 self.same_point_clear_pending = None
