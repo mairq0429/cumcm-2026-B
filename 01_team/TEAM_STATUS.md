@@ -11,11 +11,11 @@
 
 ## 进行中
 
-- Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M4 已实现，M4.1 physical-boundary/Gverify merge hardening 已完成；M5--M6 待实现。
+- Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M4.1 与 M5A strict candidate search 已实现；M5B--M6 待实现。
 
 ## 待验证
 
-- Q2 T12、T15--T16、1440→2880、candidate 整体收敛、Lmin 敏感性与正式结果文件；M4 的 T13/T14/T17 已通过。
+- Q2 T12、1440→2880、candidate 整体收敛、Lmin 敏感性、风险面积与正式结果文件；T13--T17 中 T13/T14/T15/T16/T17 已通过。
 
 ## 阻塞问题
 
@@ -23,7 +23,7 @@
 
 ## 今天必须完成
 
-- Q2 M1--M4（已完成）；后续 M5--M6 不得牺牲正确性抢进度。
+- Q2 M1--M5A（已完成）；后续 M5B--M6 不得牺牲正确性抢进度。
 
 ## 当前冻结版本
 

@@ -1,6 +1,6 @@
 """Q2 robust second-station selection, model Q2-robust-selection-v2.1.
 
-This implementation covers milestones M1--M4.  All convex
+This implementation covers milestones M1--M5A.  All convex
 clipping, polygon cleanup, region classification, diameter, MEC and geometry
 tolerances are imported from the verified Q1 implementation.
 """
@@ -8,7 +8,11 @@ tolerances are imported from the verified Q1 implementation.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+import csv
+import json
 import math
+from pathlib import Path
+import time
 from typing import Iterable, Mapping, Optional, Sequence
 
 from q1_localization import (
@@ -141,6 +145,50 @@ class Q2Result:
             "P1": self.P1,
             "selected_strict": None if self.selected_strict is None else self.selected_strict.to_dict(),
             "diagnostics": self.diagnostics,
+        }
+
+
+@dataclass
+class CandidateCell:
+    cell_id: str
+    level_m: float
+    ix: int
+    iy: int
+    center: Point
+    bbox: tuple[float, float, float, float]
+    status: str = "UNEVALUATED"
+    certificate: Optional[dict] = None
+    m4_result: Optional[dict] = None
+    sample_counterexample: Optional[Point] = None
+    boundary_flag: bool = False
+    cell_exclusion_certified: bool = False
+    parent_ids: tuple[str, ...] = ()
+
+    def to_record(self) -> dict:
+        candidate = None if self.m4_result is None else self.m4_result.get("candidate")
+        return {
+            "cell_id": self.cell_id,
+            "grid_level_m": self.level_m,
+            "ix": self.ix,
+            "iy": self.iy,
+            "x": self.center[0],
+            "y": self.center[1],
+            "bbox": list(self.bbox),
+            "candidate_status": self.status,
+            "certificate_status": None if self.certificate is None else self.certificate.get("status"),
+            "eps_rec_m": None if self.certificate is None else self.certificate.get("eps_rec_m"),
+            "eps_rec_source": None if self.certificate is None else self.certificate.get("eps_rec_source"),
+            "M4_status": None if self.m4_result is None else self.m4_result.get("status"),
+            "official20": None if candidate is None else candidate.official20,
+            "operational17": None if candidate is None else candidate.operational17,
+            "JD": None if candidate is None else candidate.JD,
+            "JR": None if candidate is None else candidate.JR,
+            "JA": None if candidate is None else candidate.JA,
+            "T2": None if candidate is None else candidate.T2,
+            "boundary_flag": self.boundary_flag,
+            "cell_exclusion_certified": self.cell_exclusion_certified,
+            "sample_counterexample": None if self.sample_counterexample is None else list(self.sample_counterexample),
+            "parent_ids": list(self.parent_ids),
         }
 
 
@@ -1147,6 +1195,359 @@ def evaluate_candidate_nested(
     }
 
 
+def _cell_class(cell: CandidateCell) -> str:
+    if cell.status == "STRICT_INTERIOR":
+        return "strict"
+    if cell.status in {"CERTIFIED_VIOLATION_SAMPLE", "CERTIFIED_VIOLATION", "LMIN_EXCLUDED"}:
+        return "violated"
+    return "unresolved"
+
+
+def _candidate_cells(
+    bounds: Sequence[float],
+    level_m: float,
+    omega_move: Optional[Sequence[Point]],
+    parents: Optional[Sequence[CandidateCell]],
+    tolerances: NumericalTolerances,
+) -> list[CandidateCell]:
+    lo_x, lo_y, hi_x, hi_y = map(float, bounds)
+    ix0, ix1 = math.floor(lo_x / level_m), math.ceil(hi_x / level_m) - 1
+    iy0, iy1 = math.floor(lo_y / level_m), math.ceil(hi_y / level_m) - 1
+    omega_kind = None
+    if omega_move is not None:
+        omega_kind = classify_region(omega_move, tolerances)[0]
+    cells = []
+    for ix in range(ix0, ix1 + 1):
+        x = (ix + 0.5) * level_m
+        if x < lo_x or x > hi_x:
+            continue
+        for iy in range(iy0, iy1 + 1):
+            y = (iy + 0.5) * level_m
+            if y < lo_y or y > hi_y:
+                continue
+            center = (x, y)
+            if omega_move is not None and not point_in_convex_region(
+                center, omega_move, omega_kind, tolerances
+            ):
+                continue
+            containing = [] if parents is None else [
+                parent.cell_id for parent in parents
+                if parent.bbox[0] <= x <= parent.bbox[2] and parent.bbox[1] <= y <= parent.bbox[3]
+            ]
+            if parents is not None and not containing:
+                continue
+            cells.append(CandidateCell(
+                cell_id=f"L{level_m:g}_X{ix}_Y{iy}",
+                level_m=level_m,
+                ix=ix,
+                iy=iy,
+                center=center,
+                bbox=(ix * level_m, iy * level_m, (ix + 1) * level_m, (iy + 1) * level_m),
+                parent_ids=tuple(sorted(containing)),
+            ))
+    return cells
+
+
+def _mark_boundaries(cells: Sequence[CandidateCell]) -> None:
+    by_index = {(cell.ix, cell.iy): cell for cell in cells}
+    for cell in cells:
+        own = _cell_class(cell)
+        cell.boundary_flag = cell.boundary_flag or own == "unresolved"
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            neighbor = by_index.get((cell.ix + dx, cell.iy + dy))
+            if neighbor is not None and _cell_class(neighbor) != own:
+                cell.boundary_flag = True
+                neighbor.boundary_flag = True
+
+
+def _strict_components(cells: Sequence[CandidateCell]) -> list[list[CandidateCell]]:
+    strict = {(cell.ix, cell.iy): cell for cell in cells if cell.status == "STRICT_INTERIOR"}
+    components = []
+    while strict:
+        start_key = min(strict)
+        stack = [strict.pop(start_key)]
+        component = []
+        while stack:
+            cell = stack.pop()
+            component.append(cell)
+            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                neighbor = strict.pop((cell.ix + dx, cell.iy + dy), None)
+                if neighbor is not None:
+                    stack.append(neighbor)
+        components.append(sorted(component, key=lambda item: item.cell_id))
+    return components
+
+
+def select_from_evaluated(
+    candidates: Iterable[CandidateResult],
+    *,
+    eps_rec_provisional: bool = True,
+) -> dict:
+    """Apply the frozen Cstrict/C20/Pareto selection contract."""
+
+    cstrict = [
+        candidate for candidate in candidates
+        if candidate.certificate.get("status") == "CERTIFIED_STRICT"
+        and candidate.strict_receive is True
+        and candidate.evaluation_status == "CONVERGED"
+    ]
+    c20 = [candidate for candidate in cstrict if candidate.official20 is True]
+    if c20:
+        pareto = pareto_front(cstrict)
+        selected = min(c20, key=lambda c: (c.T2, c.JR, c.JD, c.S2[0], c.S2[1]))
+        rule = "C20_LEXICOGRAPHIC_T2_JR_JD_X_Y"
+    elif cstrict:
+        pareto = pareto_front(cstrict)
+        selected = min(pareto, key=lambda c: (c.JR, c.JD, c.T2, c.S2[0], c.S2[1]))
+        rule = "STRICT_PARETO_LEXICOGRAPHIC_JR_JD_T2_X_Y"
+    else:
+        pareto, selected, rule = [], None, "NO_CSTRICT"
+    return {
+        "selection_status": "DEVELOPMENT_EPS_REC_PROVISIONAL" if eps_rec_provisional else "DEVELOPMENT",
+        "rule": rule,
+        "Cstrict": cstrict,
+        "C20": c20,
+        "pareto": pareto,
+        "selected_strict": selected,
+    }
+
+
+def _jsonable(value):
+    if isinstance(value, CandidateResult):
+        return value.to_dict()
+    if isinstance(value, WorstScenario):
+        return asdict(value)
+    if isinstance(value, CandidateCell):
+        return value.to_record()
+    if isinstance(value, dict):
+        return {key: _jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(item) for item in value]
+    return value
+
+
+def _write_m5a_outputs(output_dir: str | Path, result: dict) -> None:
+    directory = Path(output_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+    all_cells: list[CandidateCell] = result["cells"]
+    # Resolution ordering is descending, so the numerically smallest level is final.
+    final_level = min(cell.level_m for cell in all_cells)
+    final_cells = [cell for cell in all_cells if cell.level_m == final_level]
+    records = [cell.to_record() for cell in all_cells]
+    strict_records = [cell.to_record() for cell in final_cells if cell.status == "STRICT_INTERIOR"]
+    for filename, rows in (("candidate_status.csv", records), ("strict_candidates.csv", strict_records)):
+        fieldnames = list(rows[0]) if rows else list(CandidateCell("", 0, 0, 0, (0, 0), (0, 0, 0, 0)).to_record())
+        with (directory / filename).open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+
+    features = []
+    for cell in final_cells:
+        properties = cell.to_record()
+        properties.update({"artifact_status": "DEVELOPMENT", "final_result": False})
+        if cell.status == "STRICT_INTERIOR":
+            geometry = {"type": "Point", "coordinates": list(cell.center)}
+            properties["representation"] = "point_certified"
+            features.append({"type": "Feature", "geometry": geometry, "properties": properties})
+        elif cell.boundary_flag or _cell_class(cell) == "unresolved":
+            x0, y0, x1, y1 = cell.bbox
+            geometry = {"type": "Polygon", "coordinates": [[[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]]}
+            properties["representation"] = "uncertainty_cell"
+            features.append({"type": "Feature", "geometry": geometry, "properties": properties})
+    geojson = {
+        "type": "FeatureCollection",
+        "name": "Fstrict DEVELOPMENT point-certified approximation",
+        "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+        "features": features,
+    }
+    (directory / "Fstrict.geojson").write_text(json.dumps(geojson, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    selection = result["selection"]
+    selection_payload = {
+        "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+        "selection_status": selection["selection_status"],
+        "rule": selection["rule"],
+        "Cstrict_size": len(selection["Cstrict"]),
+        "C20_size": len(selection["C20"]),
+        "pareto_size": len(selection["pareto"]),
+        "selected_strict": _jsonable(selection["selected_strict"]),
+    }
+    (directory / "selection_dev.json").write_text(json.dumps(selection_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    diagnostics_payload = _jsonable({key: value for key, value in result.items() if key not in {"cells", "selection"}})
+    diagnostics_payload["artifact_status"] = "DEVELOPMENT / NOT_FINAL_Q2_RESULT"
+    (directory / "candidate_search_diagnostics.json").write_text(
+        json.dumps(diagnostics_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def search_strict_candidates(
+    S1: Sequence[float],
+    theta1_hat_deg: float,
+    config: Optional[Q2Config] = None,
+    *,
+    P1_bound: Optional[Mapping[str, object]] = None,
+    sample_scenarios: Optional[Iterable[SourceScenario]] = None,
+    certificate_fn=certified_strict,
+    m4_fn=evaluate_candidate_nested,
+    output_dir: Optional[str | Path] = None,
+) -> dict:
+    """Run the M5A 50->20->5 m point-certified strict search."""
+
+    cfg = config or Q2Config()
+    s1 = _point(S1, "S1")
+    p1 = dict(P1_bound) if P1_bound is not None else build_P1_bound(s1, theta1_hat_deg, cfg)
+    bounds = list(p1["search_box"])
+    omega = None if cfg.omega_move is None else [_point(point) for point in cfg.omega_move]
+    if omega is not None:
+        xs, ys = [p[0] for p in omega], [p[1] for p in omega]
+        bounds = [max(bounds[0], min(xs)), max(bounds[1], min(ys)), min(bounds[2], max(xs)), min(bounds[3], max(ys))]
+    if bounds[0] >= bounds[2] or bounds[1] >= bounds[3]:
+        raise ValueError("Omega_move does not intersect the Q2 search box")
+    samples = list(sample_scenarios) if sample_scenarios is not None else build_Gext(
+        p1, s1, cfg.source_step_m
+    )
+    eps_rec, eps_source = _certificate_epsilon(cfg)
+    levels = tuple(float(level) for level in cfg.candidate_steps_m)
+    if levels != (50.0, 20.0, 5.0):
+        raise ValueError("M5A candidate_steps_m must be exactly (50,20,5)")
+    all_cells: list[CandidateCell] = []
+    level_diagnostics = []
+    near_optimal_components = []
+    parents: Optional[list[CandidateCell]] = None
+    search_started = time.perf_counter()
+
+    for level in levels:
+        level_started = time.perf_counter()
+        cells = _candidate_cells(bounds, level, omega, parents, cfg.tolerances)
+        counters = {
+            "candidate_total": len(cells), "sample_rejected": 0,
+            "certificate_violation": 0, "certificate_strict": 0,
+            "certificate_unresolved": 0, "M4_evaluated": 0,
+            "M4_pass": 0, "M4_unresolved": 0, "lmin_excluded": 0,
+            "cell_exclusion_certified": 0,
+        }
+        for cell in cells:
+            cell_half_diagonal = math.sqrt(2.0) * level / 2.0
+            if _distance(cell.center, s1) < cfg.lmin_m:
+                counters["lmin_excluded"] += 1
+                if _distance(cell.center, s1) + cell_half_diagonal < cfg.lmin_m:
+                    cell.status = "LMIN_EXCLUDED"
+                    cell.cell_exclusion_certified = True
+                    counters["cell_exclusion_certified"] += 1
+                else:
+                    cell.status = "LMIN_BOUNDARY"
+                    cell.boundary_flag = True
+                continue
+            counterexample = None
+            counterexample_margin = -math.inf
+            for scenario in samples:
+                margin = receive_violation(cell.center, scenario.G, s1)
+                if margin > eps_rec and margin > counterexample_margin:
+                    counterexample, counterexample_margin = scenario.G, margin
+            if counterexample is not None:
+                cell.status = "CERTIFIED_VIOLATION_SAMPLE"
+                cell.sample_counterexample = counterexample
+                cell.certificate = {
+                    "status": "CERTIFIED_VIOLATION_SAMPLE", "certified": True,
+                    "strict_receive": False, "counterexample": counterexample,
+                    "eps_rec_m": eps_rec, "eps_rec_source": eps_source,
+                }
+                counters["sample_rejected"] += 1
+                if counterexample_margin - cell_half_diagonal > eps_rec:
+                    cell.cell_exclusion_certified = True
+                    counters["cell_exclusion_certified"] += 1
+                else:
+                    cell.boundary_flag = True
+                continue
+            certificate = certificate_fn(cell.center, p1, s1, cfg)
+            cell.certificate = certificate
+            if certificate["status"] == "CERTIFIED_VIOLATION":
+                cell.status = "CERTIFIED_VIOLATION"
+                counters["certificate_violation"] += 1
+                counterexample = certificate.get("counterexample")
+                if counterexample is not None and receive_violation(
+                    cell.center, counterexample, s1
+                ) - cell_half_diagonal > eps_rec:
+                    cell.cell_exclusion_certified = True
+                    counters["cell_exclusion_certified"] += 1
+                else:
+                    cell.boundary_flag = True
+            elif certificate["status"] == "UNRESOLVED":
+                cell.status = "BOUNDARY_OR_UNRESOLVED"
+                counters["certificate_unresolved"] += 1
+            elif certificate["status"] == "CERTIFIED_STRICT":
+                counters["certificate_strict"] += 1
+                counters["M4_evaluated"] += 1
+                m4_result = m4_fn(cell.center, s1, p1, cfg)
+                cell.m4_result = m4_result
+                if m4_result["status"] == "PASS":
+                    cell.status = "STRICT_INTERIOR"
+                    counters["M4_pass"] += 1
+                else:
+                    cell.status = "EVALUATION_UNRESOLVED"
+                    counters["M4_unresolved"] += 1
+            else:
+                raise ValueError(f"unknown certificate status {certificate['status']!r}")
+        _mark_boundaries(cells)
+        components = _strict_components(cells)
+        c20_cells = [
+            cell for cell in cells if cell.status == "STRICT_INTERIOR"
+            and cell.m4_result["candidate"].official20 is True
+        ]
+        selected_component_indices: set[int] = set()
+        if c20_cells:
+            best_t2 = min(cell.m4_result["candidate"].T2 for cell in c20_cells)
+            for index, component in enumerate(components):
+                lower_t2 = min(max(0.0, _distance(cell.center, s1) - math.sqrt(2.0) * level / 2.0) / SPEED_MPS for cell in component)
+                if lower_t2 <= best_t2 + 1.0e-3 * max(1.0, best_t2):
+                    selected_component_indices.add(index)
+        else:
+            selected_component_indices.update(range(len(components)))
+        for index, component in enumerate(components):
+            near_optimal_components.append({
+                "grid_level_m": level,
+                "component_id": f"L{level:g}_C{index}",
+                "cell_ids": [cell.cell_id for cell in component],
+                "selected_for_refinement": index in selected_component_indices,
+            })
+        counters["runtime_s"] = time.perf_counter() - level_started
+        level_diagnostics.append(counters)
+        all_cells.extend(cells)
+        if level != levels[-1]:
+            selected_ids = {
+                cell.cell_id for index in selected_component_indices for cell in components[index]
+            }
+            parents = [cell for cell in cells if cell.boundary_flag or cell.cell_id in selected_ids]
+            if not parents:
+                parents = [cell for cell in cells if _cell_class(cell) == "unresolved"]
+
+    final_cells = [cell for cell in all_cells if cell.level_m == levels[-1]]
+    evaluated = [
+        cell.m4_result["candidate"] for cell in final_cells
+        if cell.status == "STRICT_INTERIOR" and cell.m4_result is not None
+    ]
+    selection = select_from_evaluated(evaluated, eps_rec_provisional=cfg.eps_rec_m is None)
+    result = {
+        "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+        "selection_status": selection["selection_status"],
+        "eps_rec_m": eps_rec,
+        "eps_rec_source": eps_source,
+        "strict_region_representation": "point-certified approximation plus uncertainty cells",
+        "search_box": bounds,
+        "candidate_levels_m": list(levels),
+        "level_diagnostics": level_diagnostics,
+        "near_optimal_components": near_optimal_components,
+        "cells": all_cells,
+        "selection": selection,
+        "runtime_s": time.perf_counter() - search_started,
+        "warnings": ["EPS_REC_PROVISIONAL"] if cfg.eps_rec_m is None else [],
+    }
+    if output_dir is not None:
+        _write_m5a_outputs(output_dir, result)
+    return result
+
+
 def _dominates(a: CandidateResult, b: CandidateResult, epsD: float, epsR: float, epsT: float) -> bool:
     assert a.JD is not None and a.JR is not None and b.JD is not None and b.JR is not None
     tolD = max(epsD, 1.0e-3 * max(1.0, b.JD))
@@ -1196,18 +1597,18 @@ def validate_solution(candidate: CandidateResult | Mapping[str, object], config:
 
 
 def solve_q2(S1: Sequence[float], theta1_hat_deg: float, config: Optional[Q2Config] = None) -> dict:
-    """Build the formal Q2 domain; the M4 engine requires an explicit S2."""
+    """Build the formal Q2 domain; M5A search remains an explicit dev call."""
 
     cfg = config or Q2Config()
     p1 = build_P1_bound(S1, theta1_hat_deg, cfg)
     return Q2Result(
-        status="M1_M4_COMPONENTS_IMPLEMENTED",
+        status="M1_M5A_COMPONENTS_IMPLEMENTED",
         model_version="Q2-robust-selection-v2.1",
         P1=p1,
         selected_strict=None,
         diagnostics={
-            "milestones_complete": ["M1", "M2", "M3", "M4"],
-            "pending": ["M5", "M6"],
+            "milestones_complete": ["M1", "M2", "M3", "M4", "M5A"],
+            "pending": ["M5B", "M6"],
             "geometry_dependency": "Q1-localization-v1 VERIFIED",
             "continuous_strict_certificate": "triangle-cell 2-Lipschitz branch-and-bound",
             "eps_rec_m": _certificate_epsilon(cfg)[0],
@@ -1218,11 +1619,11 @@ def solve_q2(S1: Sequence[float], theta1_hat_deg: float, config: Optional[Q2Conf
 
 
 __all__ = [
-    "Q2Config", "SourceScenario", "CandidateResult", "WorstScenario", "Q2Result",
+    "Q2Config", "SourceScenario", "CandidateResult", "WorstScenario", "Q2Result", "CandidateCell",
     "bearing", "wrap_pi", "build_P1_bound", "physical_filter", "receive_floor",
     "receive_violation", "certified_strict", "make_P2", "fim_order_score",
     "build_Gext", "build_Gverify", "build_error_grid", "relchg",
     "evaluate_candidate_resolution", "evaluate_candidate", "evaluate_candidate_nested",
     "merge_verified_worst", "replay_worst_scenario", "pareto_front", "select_best",
-    "validate_solution", "solve_q2",
+    "select_from_evaluated", "search_strict_candidates", "validate_solution", "solve_q2",
 ]

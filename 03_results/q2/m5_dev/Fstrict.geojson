@@ -1,0 +1,95 @@
+{
+  "type": "FeatureCollection",
+  "name": "Fstrict DEVELOPMENT point-certified approximation",
+  "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1772.5,
+          27.5
+        ]
+      },
+      "properties": {
+        "cell_id": "L5_X354_Y5",
+        "grid_level_m": 5.0,
+        "ix": 354,
+        "iy": 5,
+        "x": 1772.5,
+        "y": 27.5,
+        "bbox": [
+          1770.0,
+          25.0,
+          1775.0,
+          30.0
+        ],
+        "candidate_status": "STRICT_INTERIOR",
+        "certificate_status": "CERTIFIED_STRICT",
+        "eps_rec_m": 0.001,
+        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "M4_status": "PASS",
+        "official20": true,
+        "operational17": true,
+        "JD": 7.295138161150209,
+        "JR": 3.6475690805751046,
+        "JA": 5.99947368878702,
+        "T2": 15.508062419270823,
+        "boundary_flag": false,
+        "cell_exclusion_certified": false,
+        "sample_counterexample": null,
+        "parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "artifact_status": "DEVELOPMENT",
+        "final_result": false,
+        "representation": "point_certified"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1777.5,
+          27.5
+        ]
+      },
+      "properties": {
+        "cell_id": "L5_X355_Y5",
+        "grid_level_m": 5.0,
+        "ix": 355,
+        "iy": 5,
+        "x": 1777.5,
+        "y": 27.5,
+        "bbox": [
+          1775.0,
+          25.0,
+          1780.0,
+          30.0
+        ],
+        "candidate_status": "STRICT_INTERIOR",
+        "certificate_status": "CERTIFIED_STRICT",
+        "eps_rec_m": 0.001,
+        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "M4_status": "PASS",
+        "official20": true,
+        "operational17": true,
+        "JD": 8.18093497880087,
+        "JR": 4.090467489400435,
+        "JA": 5.110726037029963,
+        "T2": 16.44688420339853,
+        "boundary_flag": false,
+        "cell_exclusion_certified": false,
+        "sample_counterexample": null,
+        "parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "artifact_status": "DEVELOPMENT",
+        "final_result": false,
+        "representation": "point_certified"
+      }
+    }
+  ]
+}

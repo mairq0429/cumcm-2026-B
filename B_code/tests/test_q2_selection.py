@@ -1,8 +1,11 @@
 import copy
 from dataclasses import replace
+import json
 import math
 import os
+from pathlib import Path
 import sys
+import tempfile
 import time
 import unittest
 
@@ -14,6 +17,8 @@ if SRC_DIR not in sys.path:
 from q1_localization import DEFAULT_TOLERANCES, EPS_MEC, point_in_convex_region, wedge_halfplanes  # noqa: E402
 from q2_selection import (  # noqa: E402
     Q2Config,
+    CandidateResult,
+    SourceScenario,
     bearing,
     build_Gext,
     build_Gverify,
@@ -21,11 +26,14 @@ from q2_selection import (  # noqa: E402
     build_P1_bound,
     certified_strict,
     evaluate_candidate_nested,
+    evaluate_candidate_resolution,
     make_P2,
     merge_verified_worst,
     physical_filter,
     receive_floor,
     receive_violation,
+    search_strict_candidates,
+    select_from_evaluated,
     wrap_pi,
 )
 
@@ -317,6 +325,175 @@ class TestQ2M41StressCases(unittest.TestCase):
         self.assertEqual(result["candidate"].worst_scenarios["JA"].sample_set, "Gverify")
         self.assertEqual(result["replay"]["JR"]["status"], "PASS")
         self.assertEqual(result["replay"]["JA"]["status"], "PASS")
+
+
+class TestQ2M5AStrictCandidateSearch(unittest.TestCase):
+    @staticmethod
+    def _certificate(point, _p1, _s1, config):
+        x = point[0]
+        eps = 0.001 if config.eps_rec_m is None else config.eps_rec_m
+        common = {
+            "eps_rec_m": eps,
+            "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+            "counterexample": None,
+        }
+        if -50.0 <= x <= 50.0:
+            return dict(common, status="UNRESOLVED", certified=False, strict_receive=None)
+        if x <= -100.0 or x >= 100.0:
+            return dict(common, status="CERTIFIED_STRICT", certified=True, strict_receive=True)
+        return dict(common, status="CERTIFIED_VIOLATION", certified=True, strict_receive=False)
+
+    @classmethod
+    def _m4(cls, point, _s1, _p1, config):
+        certificate = cls._certificate(point, _p1, _s1, config)
+        candidate = CandidateResult(
+            S2=point,
+            strict_receive=True,
+            certificate=certificate,
+            T2=math.dist(point, _s1) / 5.0,
+            JD=12.0 + abs(point[1]) / 1000.0,
+            JR=6.0 + abs(point[1]) / 2000.0,
+            JA=20.0,
+            official20=True,
+            operational17=True,
+            worst_scenarios={},
+            robust_guarantee=True,
+            official20_provisional=True,
+            operational17_provisional=True,
+            evaluation_status="CONVERGED",
+        )
+        return {"status": "PASS", "candidate": candidate}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.S1 = (0.0, 0.0)
+        cls.omega = ((-250.0, -100.0), (250.0, -100.0), (250.0, 100.0), (-250.0, 100.0))
+        cls.config = Q2Config(circle_sides=90, omega_move=cls.omega, lmin_m=0.0)
+        cls.P1 = build_P1_bound(cls.S1, 0.0, cls.config)
+        cls.result = search_strict_candidates(
+            cls.S1, 0.0, cls.config, P1_bound=cls.P1, sample_scenarios=[],
+            certificate_fn=cls._certificate, m4_fn=cls._m4,
+        )
+
+    def test_candidate_grid_50_20_5_boundary_unresolved_and_components(self):
+        diagnostics = self.result["level_diagnostics"]
+        self.assertEqual(self.result["candidate_levels_m"], [50.0, 20.0, 5.0])
+        self.assertTrue(all(item["candidate_total"] > 0 for item in diagnostics))
+        self.assertTrue(any(item["certificate_unresolved"] > 0 for item in diagnostics))
+        fine = [cell for cell in self.result["cells"] if cell.level_m == 5.0]
+        self.assertTrue(fine)
+        self.assertTrue(any(cell.parent_ids for cell in fine))
+        self.assertTrue(any(cell.status == "BOUNDARY_OR_UNRESOLVED" for cell in fine))
+        coarse_components = [
+            item for item in self.result["near_optimal_components"]
+            if item["grid_level_m"] == 50.0 and item["selected_for_refinement"]
+        ]
+        self.assertGreaterEqual(len(coarse_components), 2)
+
+    def test_sample_counterexample_rejects_point_but_only_safe_cells_stop(self):
+        omega = ((1100.0, -25.0), (1150.0, -25.0), (1150.0, 25.0), (1100.0, 25.0))
+        config = Q2Config(circle_sides=90, omega_move=omega, lmin_m=0.0)
+        p1 = build_P1_bound(self.S1, 0.0, config)
+        physical_sample = SourceScenario(
+            G=(100.0, 0.0), sample_set="Gext", source_level_m=20.0, origin="interior"
+        )
+        result = search_strict_candidates(
+            self.S1, 0.0, config, P1_bound=p1, sample_scenarios=[physical_sample],
+            certificate_fn=lambda p, p1, s1, c: dict(
+                self._certificate((150.0, p[1]), p1, s1, c), status="CERTIFIED_STRICT",
+                certified=True, strict_receive=True,
+            ),
+            m4_fn=self._m4,
+        )
+        self.assertGreater(sum(item["sample_rejected"] for item in result["level_diagnostics"]), 0)
+        rejected = [cell for cell in result["cells"] if cell.status == "CERTIFIED_VIOLATION_SAMPLE"]
+        self.assertTrue(rejected)
+        self.assertTrue(any(cell.boundary_flag and not cell.cell_exclusion_certified for cell in rejected))
+        self.assertTrue(any(cell.level_m == 5.0 for cell in result["cells"]))
+
+    def test_same_input_is_deterministic_and_outputs_point_certificates(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            second = search_strict_candidates(
+                self.S1, 0.0, self.config, P1_bound=self.P1, sample_scenarios=[],
+                certificate_fn=self._certificate, m4_fn=self._m4, output_dir=temporary,
+            )
+            first_selected = self.result["selection"]["selected_strict"]
+            second_selected = second["selection"]["selected_strict"]
+            self.assertEqual(first_selected.to_dict(), second_selected.to_dict())
+            expected = {
+                "strict_candidates.csv", "candidate_status.csv", "Fstrict.geojson",
+                "selection_dev.json", "candidate_search_diagnostics.json",
+            }
+            self.assertEqual({path.name for path in Path(temporary).iterdir()}, expected)
+            geojson = json.loads((Path(temporary) / "Fstrict.geojson").read_text(encoding="utf-8"))
+            representations = {feature["properties"]["representation"] for feature in geojson["features"]}
+            self.assertIn("point_certified", representations)
+            self.assertIn("uncertainty_cell", representations)
+            self.assertTrue(all(
+                feature["geometry"]["type"] == "Point"
+                for feature in geojson["features"]
+                if feature["properties"]["representation"] == "point_certified"
+            ))
+
+    def test_candidates_may_be_outside_target_circle_and_lmin_excludes(self):
+        outside_omega = ((1850.0, -50.0), (2050.0, -50.0), (2050.0, 50.0), (1850.0, 50.0))
+        outside_config = Q2Config(circle_sides=90, omega_move=outside_omega, lmin_m=0.0)
+        outside_p1 = build_P1_bound(self.S1, 0.0, outside_config)
+        outside = search_strict_candidates(
+            self.S1, 0.0, outside_config, P1_bound=outside_p1, sample_scenarios=[],
+            certificate_fn=lambda p, p1, s1, c: dict(
+                self._certificate((150.0, p[1]), p1, s1, c), status="CERTIFIED_STRICT",
+                certified=True, strict_receive=True,
+            ),
+            m4_fn=self._m4,
+        )
+        self.assertGreater(math.dist(outside["selection"]["selected_strict"].S2, (0.0, 0.0)), 1800.0)
+        near_omega = ((-40.0, -40.0), (40.0, -40.0), (40.0, 40.0), (-40.0, 40.0))
+        near_config = Q2Config(circle_sides=90, omega_move=near_omega, lmin_m=50.0)
+        near_p1 = build_P1_bound(self.S1, 0.0, near_config)
+        excluded = search_strict_candidates(
+            self.S1, 0.0, near_config, P1_bound=near_p1, sample_scenarios=[],
+            certificate_fn=self._certificate, m4_fn=self._m4,
+        )
+        self.assertGreater(excluded["level_diagnostics"][0]["lmin_excluded"], 0)
+        final_strict = [
+            cell for cell in excluded["cells"]
+            if cell.level_m == 5.0 and cell.status == "STRICT_INTERIOR"
+        ]
+        self.assertTrue(all(math.dist(cell.center, self.S1) >= 50.0 for cell in final_strict))
+
+    def test_T15_selection_rule(self):
+        def candidate(x, t2, jr, jd, official, status="CERTIFIED_STRICT", evaluation="CONVERGED"):
+            return CandidateResult(
+                S2=(x, 0.0), strict_receive=True if status == "CERTIFIED_STRICT" else None,
+                certificate={"status": status}, T2=t2, JD=jd, JR=jr, JA=1.0,
+                official20=official, operational17=False, worst_scenarios={},
+                evaluation_status=evaluation,
+            )
+        a = candidate(2.0, 5.0, 10.0, 15.0, True)
+        b = candidate(1.0, 4.0, 12.0, 14.0, True)
+        unresolved = candidate(0.0, 1.0, 1.0, 1.0, True, status="UNRESOLVED", evaluation="UNRESOLVED")
+        selected_a = select_from_evaluated([a, b, unresolved])
+        self.assertIs(selected_a["selected_strict"], b)
+        self.assertNotIn(unresolved, selected_a["Cstrict"])
+        p = candidate(3.0, 5.0, 4.0, 10.0, False)
+        q = candidate(4.0, 4.0, 5.0, 9.0, False)
+        selected_b = select_from_evaluated([p, q])
+        self.assertIs(selected_b["selected_strict"], p)
+        selected_c = select_from_evaluated([unresolved])
+        self.assertIsNone(selected_c["selected_strict"])
+
+    def test_T16_all_sources_and_worst_scenarios_are_physical(self):
+        gext = build_Gext(self.P1, self.S1, 20.0)
+        fine = build_Gext(self.P1, self.S1, 10.0, gext)
+        verify = build_Gverify(self.P1, self.S1, 10.0, fine)
+        self.assertTrue(all(physical_filter(item.G, self.S1) for item in fine + verify))
+        evaluated = evaluate_candidate_resolution(
+            (100.0, 0.0), self.S1, self.P1, fine[:12], 0.1, self.config,
+        )
+        self.assertEqual(set(evaluated.worst_scenarios), {"JD", "JR", "JA"})
+        for worst in evaluated.worst_scenarios.values():
+            self.assertTrue(physical_filter(worst.G, self.S1))
 
 
 if __name__ == "__main__":

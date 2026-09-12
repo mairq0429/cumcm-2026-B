@@ -13,7 +13,7 @@
 | 问题编号 | 标题 | 描述 | 负责人 | 状态 | 截止时间 | 关联版本 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 |
-| Q2-I-001 | M5--M6 尚未完成 | 全候选搜索、Garea、正式区域/推荐输出和整体收敛/敏感性仍待实现；M4 嵌套最坏场景与独立 Gverify 已完成 | C | OPEN | 后续轮次 | Q2-robust-selection-v2.1 | 不得在完成前声明 Q2 TESTED/VERIFIED |
+| Q2-I-001 | M5B--M6 尚未完成 | M5A strict 全候选自适应搜索已完成；Garea/Qarea、风险推荐、正式区域/推荐输出和整体收敛/敏感性仍待实现 | C | OPEN | 后续轮次 | Q2-robust-selection-v2.1 | eps_rec 仍 provisional；不得在完成前声明 Q2 TESTED/VERIFIED |
 
 ## P2
 

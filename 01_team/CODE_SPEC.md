@@ -31,8 +31,8 @@
 - 对应 MODEL_SPEC 版本：Q2-robust-selection-v2.1（DERIVED）
 - 源代码文件：B_code/src/q2_selection.py
 - 公开主函数：solve_q2(S1, theta1_hat_deg, config=None) -> dict
-- 公开构件：Q2Config、SourceScenario、CandidateResult、WorstScenario、Q2Result、bearing、wrap_pi、build_P1_bound、physical_filter、receive_floor、receive_violation、certified_strict、make_P2、build_Gext、build_Gverify、build_error_grid、relchg、fim_order_score、evaluate_candidate_resolution、evaluate_candidate_nested、replay_worst_scenario，以及保留的兼容评价接口。
-- 输入输出：输入第一次检测点/示向及配置；M1--M3 输出 P1 外/内近似、物理过滤、连续域严格接收证书和单场景 P2 的 status/area/diameter/MEC/一致性诊断。M4 已实现单个给定 S2 的 source-outer/error-inner 嵌套最坏评价；全局候选搜索、风险面积、正式区域/推荐、整体收敛与敏感性属于 M5--M6，尚未实现。
+- 公开构件：Q2Config、SourceScenario、CandidateResult、WorstScenario、Q2Result、CandidateCell、bearing、wrap_pi、build_P1_bound、physical_filter、receive_floor、receive_violation、certified_strict、make_P2、build_Gext、build_Gverify、build_error_grid、relchg、fim_order_score、evaluate_candidate_resolution、evaluate_candidate_nested、replay_worst_scenario、search_strict_candidates、select_from_evaluated，以及保留的兼容评价接口。
+- 输入输出：输入第一次检测点/示向及配置；M1--M3 输出 P1 外/内近似、物理过滤、连续域严格接收证书和单场景 P2 的 status/area/diameter/MEC/一致性诊断。M4 已实现单个给定 S2 的 source-outer/error-inner 嵌套最坏评价；M5A 已实现全局 strict 候选 50→20→5 m 自适应搜索、开发态区域表达和 C20/Pareto 选择框架。风险面积、Lmin 敏感性、整体收敛与正式结果属于 M5B--M6，尚未实现。
 - 依赖：Q1-localization-v1 VERIFIED；直接复用 `DEFAULT_TOLERANCES`、wedge/circle/clip/clean/classify/diameter/MEC/area/point-membership 公共实现。Q2 默认圆分辨率 1440，不改变 Q1 默认 720。
 - 接收半径语义：实际物理量是固定但未知的 `rho∈[1000,1500]`；第一次在 `S1` 成功接收后，`receive_floor(G)=max(1000,||G-S1||)` 仅为条件相容的最小可能 `rho`，不是实际接收半径。
 - 数值证书：Q1 `DEFAULT_TOLERANCES` 仅用于底层几何。`eps_rec` 是独立的 Q2 branch-and-bound 认证误差参数，当前未获模型冻结；`Q2Config.eps_rec_m=None` 时采用明确标记为 `IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED` 的开发默认值，并在 diagnostics/certificate 输出实际值和来源。三角单元使用 2-Lipschitz 上界。
@@ -41,9 +41,11 @@
 - M4 误差与评价：`build_error_grid` 始终包含 -1/0/+1 degree，并保证 0.1→0.05→0.025... 嵌套。`evaluate_candidate_resolution` 对 near 只评价一次，对普通场景遍历完整误差网格；`evaluate_candidate_nested` 在每一 source level 内先完成 JD/JR error convergence，再比较 source convergence，最后进入独立 Gverify。输出措辞固定为“场景加密后的收敛数值最坏值”。
 - M4 最坏场景与 replay：JD/JR/JA 分别保存扩充后的 `WorstScenario`，包括 G/e2/status/theta/三项几何/MEC center/support/source level/sample set/origin；Gverify 完成后按指标分别执行 `validated=max(optimizer,verify)`，若 verify 更大则最终 CandidateResult 和 WorstScenario 均替换为 Gverify 场景，同时保留 optimizer_worst、verify_worst、validated_worst。`replay_worst_scenario` 用 Q1 容差重算最终 validated worst 并逐项核对。TQ3 移动时间仅随最坏场景记录，不参与评价或排序。
 - M4 最终性：仅当 source convergence、error convergence 和独立 Gverify 均 PASS 时，才基于 validated JR 生成 `official20/operational17` final 字段；否则只提供基于 validated JR 的 `official20_provisional/operational17_provisional`。`eps_rec` 仍为 provisional，结果携带实际值与来源。
+- M5A 候选搜索：`search_strict_candidates` 在 `Omega_move` 缺省时使用 `bbox(P1_bound)` 四周扩 1500 m 的搜索盒，并按 50→20→5 m 建立带稳定 level/ix/iy/center/bbox ID 的候选单元。Stage A 仅用物理合法 Gext 的真实反例作安全点排除，Stage B 再调用连续域 `certified_strict`；只有 `CERTIFIED_STRICT` 且满足 `Lmin` 的点才调用完整 M4。中心点反例不自动排除整格；仅当基于 S2 的 1-Lipschitz 裕量证明整个单元仍违规时，才标 `cell_exclusion_certified`，否则作为边界单元继续细化。UNRESOLVED 与 strict/violation 邻接边界强制细化，所有可能入选的 strict 连通分支同时保留。
+- M5A 选择与输出：`Cstrict` 仅含 strict certificate、M4 CONVERGED 且满足 Lmin 的候选；`C20` 使用吸收 Gverify 后的 validated JR。C20 非空按 `(T2,JR,JD,x,y)`；否则先作 tolerance-aware Pareto(JR,JD,T2)，再按 `(JR,JD,T2,x,y)`。开发输出位于 `03_results/q2/m5_dev/`；`Fstrict.geojson` 将 strict 中心写为 `point_certified` Point，将边界/不确定单元另写为 `uncertainty_cell` Polygon，不把中心证书虚构为整格证书。全部标记 `DEVELOPMENT / NOT_FINAL_Q2_RESULT / EPS_REC_PROVISIONAL`。
 - 测试文件：B_code/tests/test_q2_selection.py
-- 算法版本：Q2-selection-v2.1（开发中，当前完成 M1--M4）
-- 状态：CODED=NO, TESTED=NO, VERIFIED=NO；T01--T11、T13、T14、T17 已通过；T12 保持 PARTIAL/NOT_RUN，T15--T16 等待 M5--M6 完整验证。不得自行标记 VERIFIED。
+- 算法版本：Q2-selection-v2.1（开发中，当前完成 M1--M5A）
+- 状态：CODED=NO, TESTED=NO, VERIFIED=NO；T01--T11、T13--T17 中 T13/T14/T15/T16/T17 已通过；T12 保持 PARTIAL/NOT_RUN。M5B--M6、整体离散收敛与最终交叉验证未完成，不得自行标记 VERIFIED。
 
 ## Q3
 
