@@ -11,8 +11,9 @@
 
 ## 进行中
 
-- Q3-improved-v1: Q3I-01 COMPLETE; Q3I-02 COMPLETE; Q3I-03 COMPLETE after
-  fixed-radius point oracle and conservative OUTER containment tests; Q3I-04
+- Q3-improved-v1: Q3I-01 COMPLETE; Q3I-02 COMPLETE; Q3I-03 COMPLETE; Q3I-04
+  COMPLETE after the independent MEC oracle, OUTER-corner containment replay,
+  revision/stale checks and joint true-source certificate Monte Carlo; Q3I-05
   NOT_STARTED. Scope is Problem 3 omnidirectional sources only. Overall status
   remains CODED=NO, TESTED=NO, VERIFIED=NO.
 

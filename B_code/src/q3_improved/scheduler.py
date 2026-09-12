@@ -44,6 +44,16 @@ class CoverageScheduler:
             if state.channels[channel].status == ChannelStatus.CLEAR_READY:
                 return Action(ActionType.CLEAR, state.position, channel)
 
+        # MEC clears are permitted only for a certificate bound to the exact
+        # current observation and geometry revisions. Physical-only <=20 m
+        # diagnostics never authorize an automatic clear.
+        from .clear_certificate import certificate_is_current
+        for channel in range(1, N_CHANNELS + 1):
+            if certificate_is_current(state, channel):
+                target = state.channels[channel].clear_target
+                assert target is not None
+                return Action(ActionType.CLEAR, target, channel)
+
         nodes = coverage_nodes()
         for node in range(N_COVERAGE_NODES):
             pending = [

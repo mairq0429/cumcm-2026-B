@@ -7,6 +7,7 @@ feasible boxes. All geometry can be rebuilt from immutable observations.
 from __future__ import annotations
 
 import math
+import hashlib
 from collections import Counter, deque
 from dataclasses import dataclass
 from enum import Enum
@@ -219,6 +220,8 @@ class OuterDiagnostics:
 class OuterResult:
     boxes: tuple[Box, ...]
     diagnostics: OuterDiagnostics
+    observation_revision: str
+    geometry_revision: str
 
     def contains(self, point: Point) -> bool:
         return any(box.contains(point) for box in self.boxes)
@@ -274,8 +277,13 @@ def rebuild_outer_from_observations(
             ):
                 budget_exhausted = True
 
+    retained_tuple = tuple(retained)
+    geometry_payload = repr((
+        observations.revision, retained_tuple, max_depth, max_boxes,
+        split_budget, target_box_size,
+    )).encode("utf-8")
     return OuterResult(
-        tuple(retained),
+        retained_tuple,
         OuterDiagnostics(
             retained_box_count=len(retained),
             excluded_box_count=excluded,
@@ -284,6 +292,8 @@ def rebuild_outer_from_observations(
             budget_exhausted=budget_exhausted,
             exclusion_reason_counts=dict(sorted(reasons.items())),
         ),
+        observation_revision=observations.revision,
+        geometry_revision=hashlib.sha256(geometry_payload).hexdigest(),
     )
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import hashlib
 from typing import Optional, Tuple, TYPE_CHECKING, Union
 
 from .protocol import ClearResult, MeasureResult, NormalizedResponse
@@ -60,6 +61,13 @@ GeometricObservation = Union[
 @dataclass(frozen=True)
 class ObservationHistory:
     records: tuple[GeometricObservation, ...] = ()
+
+    @property
+    def revision(self) -> str:
+        """Stable content revision used to invalidate geometry certificates."""
+
+        payload = "|".join(repr(record) for record in self.records).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
 
     def commit_measure(self, response: NormalizedResponse) -> "ObservationHistory":
         if response.accepted is not True or response.position is None:

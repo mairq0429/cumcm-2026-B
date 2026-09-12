@@ -71,3 +71,11 @@
 - 对`(1710,-50)`和`(1727.5,-42.5)`按公式径向投影到Lmin=50m圆；投影半径误差分别为2.13e-14m与4.97e-14m。
 - 两个点均使用fresh P1重新获得`CERTIFIED_STRICT`，完整M4/source/error/Gverify/replay全部PASS，并分别得到JR=6.36898981m与5.52514801m；official20和operational17均为true。
 - 结论：`boundary_witness_exists=true`，结合所有admissible点的Lmin约束，代表性案例`PROVED_T2_STAR_EQ_10`。此结论仅为VALIDATION/DIAGNOSTIC；1440 candidate-grid sensitivity和T12状态不在本轮改变，2.5m/2880均未运行。
+
+# 2026-09-12 Q3I-04 handoff
+
+- 版本：Q3-improved-v1 / Q3I-04；Q3I-01--04 COMPLETE，Q3I-05 NOT_STARTED；整体 CODED=NO / TESTED=NO / VERIFIED=NO。
+- 结论：正式 clear certificate 使用每个 retained OUTER box 的全部四角；凸圆盘覆盖四角即覆盖整盒。复用 Q1 verified deterministic MEC 公共接口，`EPS_MEC=1.8e-4 m` 来自 MODEL_SPEC/CODE_SPEC/SOURCE_OF_TRUTH，并由 Q1 105 组及 Q3 500 组独立暴力 oracle 验证。
+- 安全判据：`r_upper=r_mec+EPS_MEC`；只有 `r_upper<=17 m` 可绑定 `CLEAR_READY`，`<=20 m` 仅为物理诊断。证书绑定 observation/geometry revision；新观测或未知执行状态使旧证书失效。
+- 验证：C07/C08、M01--M07、500 组 finite-set oracle、1000 组 fixed-R+DIRECTION+NO_SIGNAL+NEAR 联合 OUTER certificate 均 PASS；1000 个 operational certificate 中真源距离超过17m失败数为0。
+- 异常：已认证 clear 若返回 accepted `no_target_in_range`，记录 `CERTIFIED_CLEAR_CONTRADICTION`（certificate、OUTER、observations、response 快照）并进入 RECOVERY；不降低证书标准。

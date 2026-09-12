@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from .config import N_CHANNELS
 from .coverage import CoverageMatrix
@@ -30,6 +30,12 @@ class ChannelState:
     positive_evidence: bool = False
     observations: list[NormalizedResponse] = field(default_factory=list)
     geometry_history: ObservationHistory = field(default_factory=ObservationHistory)
+    geometry_revision: Optional[str] = None
+    certificate_revision: Optional[str] = None
+    clear_target: Optional[Point] = None
+    clear_certificate: Optional[Any] = None
+    certificate_outer_snapshot: Optional[Any] = None
+    recovery_history: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -49,6 +55,7 @@ class Q3State:
             raise ValueError("measure response needs a valid channel")
         state = self.channels[channel]
         if response.execution == ExecutionStatus.UNKNOWN_EXECUTION_STATE:
+            self._invalidate_certificate(state)
             if state.status != ChannelStatus.CLEARED:
                 state.status = ChannelStatus.RECOVERY
             return False
@@ -59,6 +66,7 @@ class Q3State:
                 state.status = ChannelStatus.RECOVERY
             return False
 
+        self._invalidate_certificate(state)
         if response.position is not None:
             self.position = response.position
         self.receiver_channel = channel
@@ -88,6 +96,7 @@ class Q3State:
             raise ValueError("clear response needs a valid channel")
         state = self.channels[channel]
         if response.execution == ExecutionStatus.UNKNOWN_EXECUTION_STATE:
+            self._invalidate_certificate(state)
             if state.status != ChannelStatus.CLEARED:
                 state.status = ChannelStatus.RECOVERY
             return False
@@ -103,6 +112,22 @@ class Q3State:
             self.position = response.position
         if response.virtual_time is not None:
             self.virtual_time = response.virtual_time
+        certified_contradiction = bool(
+            response.clear_result == ClearResult.NO_TARGET_IN_RANGE
+            and state.certificate_revision is not None
+            and state.clear_certificate is not None
+            and getattr(state.clear_certificate, "operational_clearable", False)
+            and getattr(state.clear_certificate, "observation_revision", None) == state.geometry_history.revision
+        )
+        if certified_contradiction:
+            state.recovery_history.append({
+                "status": "CERTIFIED_CLEAR_CONTRADICTION",
+                "certificate": state.clear_certificate,
+                "outer": state.certificate_outer_snapshot,
+                "observations": state.geometry_history,
+                "response": response,
+            })
+
         if response.clear_result == ClearResult.SUCCESS:
             state.positive_evidence = True
             state.status = ChannelStatus.CLEARED
@@ -115,6 +140,17 @@ class Q3State:
             if self.same_point_clear_pending == channel:
                 self.same_point_clear_pending = None
         return True
+
+    @staticmethod
+    def _invalidate_certificate(state: ChannelState) -> None:
+        had_mec_ready = state.certificate_revision is not None
+        state.geometry_revision = None
+        state.certificate_revision = None
+        state.clear_target = None
+        state.clear_certificate = None
+        state.certificate_outer_snapshot = None
+        if had_mec_ready and state.status == ChannelStatus.CLEAR_READY:
+            state.status = ChannelStatus.DETECTED
 
     def may_add_clear_distance_exclusion(self, response: NormalizedResponse) -> bool:
         return bool(
