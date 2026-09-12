@@ -25,6 +25,7 @@
 - Q2 M6A.6 unresolved-competitive gate 已实现并通过回归。完整1440代表性 baseline 已于84.03 s完成：6个最终UNRESOLVED cells全部为noncompetitive，gate=`PASS_NONCOMPETITIVE_UNRESOLVED`；selected独立复核、source/error、Gverify、JD/JR/JA replay及monotone均PASS。但20→5的T2/JD/JR relchg分别为0.00724/0.13077/0.13077，故`CANDIDATE_GRID_SENSITIVE`，1440状态与T12保持UNRESOLVED，禁止进入2880。
 - Q2 M6A.7a Lmin boundary radial projection diagnostic：将20m/5m selected按公式投影到`||S2-S1||=50m`后，两个点均以fresh P1通过CERTIFIED_STRICT、完整M4、source/error、Gverify与JD/JR/JA replay，且重新满足official20/operational17。故代表性案例存在boundary C20 witness，并由Lmin证明`T2*=10s`；这是VALIDATION/DIAGNOSTIC，不改变全局selection rule、T12或1440 candidate-grid sensitivity状态。
 - Q2 M6A.7b Lmin-circle branch discovery：因1度预计需302次完整M4，采用允许的2度全圆扫描。180个角全部CERTIFIED_STRICT；30个由cheap screen证明非C20，150个经完整M4成为STRICT_C20，形成两个sampled connected arcs：4--152度与208--356度。诊断最小JR样本在314度（JR=5.389448m），仅作为M6A.7c refinement seed，不作最终secondary optimum签字；2880/M6B未运行。
+- Q2 M6A.7c secondary refinement：复用上述2度全圆缓存，在两个分支各取局部JR极小，完成0.5度窗口与0.1度细化，并对最佳点执行fresh P1、strict、nested M4、Gverify与replay。得到314.1度数值候选（JR=5.389432808m、JD=10.778865616m、JA=15.864916804m），与45.9度候选近似并列；状态为`NUMERICALLY_REFINED`，不是连续全局最优区间证书，M6B未运行。
 
 ## 待验证
 

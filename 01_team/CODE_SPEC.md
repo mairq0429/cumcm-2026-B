@@ -60,6 +60,7 @@
 - M6A.5 incremental anchor propagation：`StrictCertificateAccelerator.certify_points_legacy` 保留批量 oracle，生产 `certify_points` 委托 event-driven `certify_points_incremental`。初始化时先对全部既有 anchors 累积最优 L/U，再统一解析 pending，保证 whole-cell 结果与 legacy 完全一致；此后每个新增 anchor 对每个当时 pending point 只计算一次距离，并精确维护 nearest-anchor distance、best propagated L/U 和 deterministic farthest scheduler。传播及整格符号判断仍严格使用 0，不使用 `eps_rec_cert_m` 放宽。正式 5 m region-only 为17292 candidates、9588 certificate batch points，复用246个既有 anchors，新增881个 full anchors；7845点由既有 anchors、862点由新增 anchors传播，完整50→20→5 region-only用时约56.5 s（原 >300 s），M4调用为0。6个5 m cells仍为合法 `UNRESOLVED`，不影响性能修复结论但必须在后续完整验证中保留。
 - M6A.7a boundary diagnostic：`q2_m6_boundary_projection.py` 对给定候选按 `S1 + Lmin*(S2-S1)/||S2-S1||` 计算径向投影，并为每个投影点建立fresh P1、独立运行zero-threshold strict certificate及完整nested M4/Gverify/replay。只有全部门通过且validated `JR+EPS_MEC<=20` 才标`boundary_C20=true`；结果不参与或改变既有grid selection rule。
 - M6A.7b branch discovery：`q2_m6_boundary_scan.py` 在Lmin=50m圆上完整覆盖0--358度的2度确定性网格。pipeline为共享树strict certificate→单向cheap C20 rejection→不可排除点完整nested M4/Gverify/replay；所有圆周点的第一目标固定为精确T2=10s，诊断排序仅用`(JR,JD,x,y)`。圆弧构造按圆拓扑合并359/0邻接；该输出仅确定下一阶段polar refinement branches，不作secondary optimum签字。
+- M6A.7c secondary refinement：`q2_m6_secondary_refinement.py` 只消费M6A.7b的2度缓存，在每个采样C20连通分支上检测圆周局部JR极小，执行±2度/0.5度窗口，再对前两名局部点执行±0.5度/0.1度细化；新点保持zero-threshold strict、cheap screen、nested M4、Gverify与replay全门控。输出为`NUMERICAL_FINAL_CANDIDATE / COMPETITION_DELIVERABLE`，不宣称连续全局最优或区间证书。
 
 ## Q3
 
