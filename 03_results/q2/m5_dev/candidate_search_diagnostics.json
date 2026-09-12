@@ -19,6 +19,9 @@
     {
       "candidate_total": 1,
       "sample_rejected": 0,
+      "region_candidate_count": 1,
+      "objective_candidate_count": 1,
+      "certificate_calls": 1,
       "certificate_violation": 0,
       "certificate_strict": 1,
       "certificate_unresolved": 0,
@@ -27,11 +30,14 @@
       "M4_unresolved": 1,
       "lmin_excluded": 0,
       "cell_exclusion_certified": 0,
-      "runtime_s": 2.2069125000052736
+      "runtime_s": 2.3274565000028815
     },
     {
       "candidate_total": 1,
       "sample_rejected": 0,
+      "region_candidate_count": 1,
+      "objective_candidate_count": 1,
+      "certificate_calls": 1,
       "certificate_violation": 0,
       "certificate_strict": 1,
       "certificate_unresolved": 0,
@@ -40,11 +46,14 @@
       "M4_unresolved": 0,
       "lmin_excluded": 0,
       "cell_exclusion_certified": 0,
-      "runtime_s": 2.015454899999895
+      "runtime_s": 2.3086546000049566
     },
     {
-      "candidate_total": 2,
+      "candidate_total": 9,
       "sample_rejected": 0,
+      "region_candidate_count": 9,
+      "objective_candidate_count": 2,
+      "certificate_calls": 2,
       "certificate_violation": 0,
       "certificate_strict": 2,
       "certificate_unresolved": 0,
@@ -53,9 +62,21 @@
       "M4_unresolved": 0,
       "lmin_excluded": 0,
       "cell_exclusion_certified": 0,
-      "runtime_s": 3.469660399998247
+      "runtime_s": 3.5501374999948894
     }
   ],
+  "region_candidate_count_by_level": {
+    "50": 1,
+    "20": 1,
+    "5": 9
+  },
+  "objective_candidate_count_by_level": {
+    "50": 1,
+    "20": 1,
+    "5": 2
+  },
+  "certificate_calls": 4,
+  "M4_calls": 4,
   "near_optimal_components": [
     {
       "grid_level_m": 20.0,
@@ -75,7 +96,8 @@
       "selected_for_refinement": true
     }
   ],
-  "runtime_s": 7.692100899999787,
+  "omega_boundary_method": "conservative cell-bbox/polygon intersection; outside-center cells remain uncertainty",
+  "runtime_s": 8.186332099998253,
   "warnings": [
     "EPS_REC_PROVISIONAL"
   ]

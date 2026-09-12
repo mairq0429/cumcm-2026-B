@@ -2,7 +2,298 @@
   "type": "FeatureCollection",
   "name": "Fstrict DEVELOPMENT point-certified approximation",
   "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+  "eps_rec_m": 0.001,
+  "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+  "eps_rec_status": "EPS_REC_PROVISIONAL",
   "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1765.0,
+              20.0
+            ],
+            [
+              1770.0,
+              20.0
+            ],
+            [
+              1770.0,
+              25.0
+            ],
+            [
+              1765.0,
+              25.0
+            ],
+            [
+              1765.0,
+              20.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "cell_id": "L5_X353_Y4",
+        "grid_level_m": 5.0,
+        "ix": 353,
+        "iy": 4,
+        "x": 1767.5,
+        "y": 22.5,
+        "bbox": [
+          1765.0,
+          20.0,
+          1770.0,
+          25.0
+        ],
+        "candidate_status": "OMEGA_BOUNDARY_UNRESOLVED",
+        "certificate_status": null,
+        "eps_rec_m": 0.001,
+        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "M4_status": null,
+        "official20": null,
+        "operational17": null,
+        "JD": null,
+        "JR": null,
+        "JA": null,
+        "T2": null,
+        "boundary_flag": true,
+        "cell_exclusion_certified": false,
+        "sample_counterexample": null,
+        "parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "objective_parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "region_refinement": true,
+        "objective_refinement": false,
+        "center_in_move_domain": false,
+        "omega_boundary_flag": true,
+        "artifact_status": "DEVELOPMENT",
+        "final_result": false,
+        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "representation": "uncertainty_cell"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1765.0,
+              25.0
+            ],
+            [
+              1770.0,
+              25.0
+            ],
+            [
+              1770.0,
+              30.0
+            ],
+            [
+              1765.0,
+              30.0
+            ],
+            [
+              1765.0,
+              25.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "cell_id": "L5_X353_Y5",
+        "grid_level_m": 5.0,
+        "ix": 353,
+        "iy": 5,
+        "x": 1767.5,
+        "y": 27.5,
+        "bbox": [
+          1765.0,
+          25.0,
+          1770.0,
+          30.0
+        ],
+        "candidate_status": "OMEGA_BOUNDARY_UNRESOLVED",
+        "certificate_status": null,
+        "eps_rec_m": 0.001,
+        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "M4_status": null,
+        "official20": null,
+        "operational17": null,
+        "JD": null,
+        "JR": null,
+        "JA": null,
+        "T2": null,
+        "boundary_flag": true,
+        "cell_exclusion_certified": false,
+        "sample_counterexample": null,
+        "parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "objective_parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "region_refinement": true,
+        "objective_refinement": false,
+        "center_in_move_domain": false,
+        "omega_boundary_flag": true,
+        "artifact_status": "DEVELOPMENT",
+        "final_result": false,
+        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "representation": "uncertainty_cell"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1765.0,
+              30.0
+            ],
+            [
+              1770.0,
+              30.0
+            ],
+            [
+              1770.0,
+              35.0
+            ],
+            [
+              1765.0,
+              35.0
+            ],
+            [
+              1765.0,
+              30.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "cell_id": "L5_X353_Y6",
+        "grid_level_m": 5.0,
+        "ix": 353,
+        "iy": 6,
+        "x": 1767.5,
+        "y": 32.5,
+        "bbox": [
+          1765.0,
+          30.0,
+          1770.0,
+          35.0
+        ],
+        "candidate_status": "OMEGA_BOUNDARY_UNRESOLVED",
+        "certificate_status": null,
+        "eps_rec_m": 0.001,
+        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "M4_status": null,
+        "official20": null,
+        "operational17": null,
+        "JD": null,
+        "JR": null,
+        "JA": null,
+        "T2": null,
+        "boundary_flag": true,
+        "cell_exclusion_certified": false,
+        "sample_counterexample": null,
+        "parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "objective_parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "region_refinement": true,
+        "objective_refinement": false,
+        "center_in_move_domain": false,
+        "omega_boundary_flag": true,
+        "artifact_status": "DEVELOPMENT",
+        "final_result": false,
+        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "representation": "uncertainty_cell"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1770.0,
+              20.0
+            ],
+            [
+              1775.0,
+              20.0
+            ],
+            [
+              1775.0,
+              25.0
+            ],
+            [
+              1770.0,
+              25.0
+            ],
+            [
+              1770.0,
+              20.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "cell_id": "L5_X354_Y4",
+        "grid_level_m": 5.0,
+        "ix": 354,
+        "iy": 4,
+        "x": 1772.5,
+        "y": 22.5,
+        "bbox": [
+          1770.0,
+          20.0,
+          1775.0,
+          25.0
+        ],
+        "candidate_status": "OMEGA_BOUNDARY_UNRESOLVED",
+        "certificate_status": null,
+        "eps_rec_m": 0.001,
+        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "M4_status": null,
+        "official20": null,
+        "operational17": null,
+        "JD": null,
+        "JR": null,
+        "JA": null,
+        "T2": null,
+        "boundary_flag": true,
+        "cell_exclusion_certified": false,
+        "sample_counterexample": null,
+        "parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "objective_parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "region_refinement": true,
+        "objective_refinement": false,
+        "center_in_move_domain": false,
+        "omega_boundary_flag": true,
+        "artifact_status": "DEVELOPMENT",
+        "final_result": false,
+        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "representation": "uncertainty_cell"
+      }
+    },
     {
       "type": "Feature",
       "geometry": {
@@ -36,15 +327,167 @@
         "JR": 3.6475690805751046,
         "JA": 5.99947368878702,
         "T2": 15.508062419270823,
-        "boundary_flag": false,
+        "boundary_flag": true,
         "cell_exclusion_certified": false,
         "sample_counterexample": null,
         "parent_ids": [
           "L20_X88_Y1"
         ],
+        "objective_parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "region_refinement": true,
+        "objective_refinement": true,
+        "center_in_move_domain": true,
+        "omega_boundary_flag": false,
         "artifact_status": "DEVELOPMENT",
         "final_result": false,
+        "eps_rec_status": "EPS_REC_PROVISIONAL",
         "representation": "point_certified"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1770.0,
+              30.0
+            ],
+            [
+              1775.0,
+              30.0
+            ],
+            [
+              1775.0,
+              35.0
+            ],
+            [
+              1770.0,
+              35.0
+            ],
+            [
+              1770.0,
+              30.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "cell_id": "L5_X354_Y6",
+        "grid_level_m": 5.0,
+        "ix": 354,
+        "iy": 6,
+        "x": 1772.5,
+        "y": 32.5,
+        "bbox": [
+          1770.0,
+          30.0,
+          1775.0,
+          35.0
+        ],
+        "candidate_status": "OMEGA_BOUNDARY_UNRESOLVED",
+        "certificate_status": null,
+        "eps_rec_m": 0.001,
+        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "M4_status": null,
+        "official20": null,
+        "operational17": null,
+        "JD": null,
+        "JR": null,
+        "JA": null,
+        "T2": null,
+        "boundary_flag": true,
+        "cell_exclusion_certified": false,
+        "sample_counterexample": null,
+        "parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "objective_parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "region_refinement": true,
+        "objective_refinement": false,
+        "center_in_move_domain": false,
+        "omega_boundary_flag": true,
+        "artifact_status": "DEVELOPMENT",
+        "final_result": false,
+        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "representation": "uncertainty_cell"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1775.0,
+              20.0
+            ],
+            [
+              1780.0,
+              20.0
+            ],
+            [
+              1780.0,
+              25.0
+            ],
+            [
+              1775.0,
+              25.0
+            ],
+            [
+              1775.0,
+              20.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "cell_id": "L5_X355_Y4",
+        "grid_level_m": 5.0,
+        "ix": 355,
+        "iy": 4,
+        "x": 1777.5,
+        "y": 22.5,
+        "bbox": [
+          1775.0,
+          20.0,
+          1780.0,
+          25.0
+        ],
+        "candidate_status": "OMEGA_BOUNDARY_UNRESOLVED",
+        "certificate_status": null,
+        "eps_rec_m": 0.001,
+        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "M4_status": null,
+        "official20": null,
+        "operational17": null,
+        "JD": null,
+        "JR": null,
+        "JA": null,
+        "T2": null,
+        "boundary_flag": true,
+        "cell_exclusion_certified": false,
+        "sample_counterexample": null,
+        "parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "objective_parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "region_refinement": true,
+        "objective_refinement": false,
+        "center_in_move_domain": false,
+        "omega_boundary_flag": true,
+        "artifact_status": "DEVELOPMENT",
+        "final_result": false,
+        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "representation": "uncertainty_cell"
       }
     },
     {
@@ -80,15 +523,95 @@
         "JR": 4.090467489400435,
         "JA": 5.110726037029963,
         "T2": 16.44688420339853,
-        "boundary_flag": false,
+        "boundary_flag": true,
         "cell_exclusion_certified": false,
         "sample_counterexample": null,
         "parent_ids": [
           "L20_X88_Y1"
         ],
+        "objective_parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "region_refinement": true,
+        "objective_refinement": true,
+        "center_in_move_domain": true,
+        "omega_boundary_flag": false,
         "artifact_status": "DEVELOPMENT",
         "final_result": false,
+        "eps_rec_status": "EPS_REC_PROVISIONAL",
         "representation": "point_certified"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1775.0,
+              30.0
+            ],
+            [
+              1780.0,
+              30.0
+            ],
+            [
+              1780.0,
+              35.0
+            ],
+            [
+              1775.0,
+              35.0
+            ],
+            [
+              1775.0,
+              30.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "cell_id": "L5_X355_Y6",
+        "grid_level_m": 5.0,
+        "ix": 355,
+        "iy": 6,
+        "x": 1777.5,
+        "y": 32.5,
+        "bbox": [
+          1775.0,
+          30.0,
+          1780.0,
+          35.0
+        ],
+        "candidate_status": "OMEGA_BOUNDARY_UNRESOLVED",
+        "certificate_status": null,
+        "eps_rec_m": 0.001,
+        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "M4_status": null,
+        "official20": null,
+        "operational17": null,
+        "JD": null,
+        "JR": null,
+        "JA": null,
+        "T2": null,
+        "boundary_flag": true,
+        "cell_exclusion_certified": false,
+        "sample_counterexample": null,
+        "parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "objective_parent_ids": [
+          "L20_X88_Y1"
+        ],
+        "region_refinement": true,
+        "objective_refinement": false,
+        "center_in_move_domain": false,
+        "omega_boundary_flag": true,
+        "artifact_status": "DEVELOPMENT",
+        "final_result": false,
+        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "representation": "uncertainty_cell"
       }
     }
   ]

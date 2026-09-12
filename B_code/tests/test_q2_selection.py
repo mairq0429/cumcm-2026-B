@@ -411,6 +411,101 @@ class TestQ2M5AStrictCandidateSearch(unittest.TestCase):
         self.assertTrue(any(cell.boundary_flag and not cell.cell_exclusion_certified for cell in rejected))
         self.assertTrue(any(cell.level_m == 5.0 for cell in result["cells"]))
 
+        safe_config = Q2Config(
+            circle_sides=90,
+            omega_move=((1500.0, -25.0), (1550.0, -25.0), (1550.0, 25.0), (1500.0, 25.0)),
+            lmin_m=0.0,
+        )
+        safe_p1 = build_P1_bound(self.S1, 0.0, safe_config)
+        safely_excluded = search_strict_candidates(
+            self.S1, 0.0, safe_config, P1_bound=safe_p1,
+            sample_scenarios=[physical_sample], certificate_fn=self._certificate,
+            m4_fn=self._m4,
+        )
+        coarse = [cell for cell in safely_excluded["region_cells"] if cell.level_m == 50.0]
+        self.assertTrue(coarse)
+        self.assertTrue(all(cell.cell_exclusion_certified for cell in coarse))
+        self.assertEqual(safely_excluded["region_candidate_count_by_level"]["20"], 0)
+        self.assertEqual(safely_excluded["region_candidate_count_by_level"]["5"], 0)
+
+    def test_nonoptimal_strict_component_remains_in_region_not_objective(self):
+        omega = ((50.0, -25.0), (550.0, -25.0), (550.0, 25.0), (50.0, 25.0))
+        config = Q2Config(circle_sides=90, omega_move=omega, lmin_m=0.0)
+        p1 = build_P1_bound(self.S1, 0.0, config)
+
+        def separated_certificate(point, _p1, _s1, cfg):
+            eps = 0.001 if cfg.eps_rec_m is None else cfg.eps_rec_m
+            strict = point[0] < 200.0 or point[0] >= 400.0
+            return {
+                "status": "CERTIFIED_STRICT" if strict else "CERTIFIED_VIOLATION",
+                "certified": True,
+                "strict_receive": strict,
+                "counterexample": None,
+                "eps_rec_m": eps,
+                "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+            }
+
+        def separated_m4(point, s1, p1_arg, cfg):
+            certificate = separated_certificate(point, p1_arg, s1, cfg)
+            candidate = CandidateResult(
+                S2=point, strict_receive=True, certificate=certificate,
+                T2=math.dist(point, s1) / 5.0, JD=10.0, JR=5.0, JA=1.0,
+                official20=True, operational17=True, worst_scenarios={},
+                robust_guarantee=True, evaluation_status="CONVERGED",
+            )
+            return {"status": "PASS", "candidate": candidate}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            result = search_strict_candidates(
+                self.S1, 0.0, config, P1_bound=p1, sample_scenarios=[],
+                certificate_fn=separated_certificate, m4_fn=separated_m4,
+                output_dir=temporary,
+            )
+            selected = result["selection"]["selected_strict"]
+            self.assertLess(selected.S2[0], 200.0)
+            fine_a = [
+                cell for cell in result["region_cells"]
+                if cell.level_m == 5.0 and cell.center[0] < 200.0
+                and cell.certificate is not None
+                and cell.certificate["status"] == "CERTIFIED_STRICT"
+            ]
+            fine_b = [
+                cell for cell in result["region_cells"]
+                if cell.level_m == 5.0 and cell.center[0] >= 400.0
+                and cell.certificate is not None
+                and cell.certificate["status"] == "CERTIFIED_STRICT"
+            ]
+            self.assertTrue(fine_a)
+            self.assertTrue(fine_b)
+            self.assertTrue(any(cell.objective_refinement and cell.m4_result for cell in fine_a))
+            self.assertTrue(all(not cell.objective_refinement and cell.m4_result is None for cell in fine_b))
+            geojson = json.loads((Path(temporary) / "Fstrict.geojson").read_text(encoding="utf-8"))
+            strict_x = [
+                feature["geometry"]["coordinates"][0]
+                for feature in geojson["features"]
+                if feature["properties"]["representation"] == "point_certified"
+            ]
+            self.assertTrue(any(x < 200.0 for x in strict_x))
+            self.assertTrue(any(x >= 400.0 for x in strict_x))
+            self.assertGreater(
+                result["region_candidate_count_by_level"]["5"],
+                result["objective_candidate_count_by_level"]["5"],
+            )
+            self.assertLess(result["M4_calls"], result["certificate_calls"])
+
+    def test_omega_boundary_intersection_is_retained_as_uncertainty(self):
+        omega = ((1.0, 1.0), (2.0, 1.0), (2.0, 2.0), (1.0, 2.0))
+        config = Q2Config(circle_sides=90, omega_move=omega, lmin_m=0.0)
+        p1 = build_P1_bound(self.S1, 0.0, config)
+        result = search_strict_candidates(
+            self.S1, 0.0, config, P1_bound=p1, sample_scenarios=[],
+            certificate_fn=self._certificate, m4_fn=self._m4,
+        )
+        self.assertTrue(all(result["region_candidate_count_by_level"][str(int(level))] > 0 for level in (50, 20, 5)))
+        fine = [cell for cell in result["region_cells"] if cell.level_m == 5.0]
+        self.assertTrue(any(cell.omega_boundary_flag for cell in fine))
+        self.assertIn("conservative", result["omega_boundary_method"])
+
     def test_same_input_is_deterministic_and_outputs_point_certificates(self):
         with tempfile.TemporaryDirectory() as temporary:
             second = search_strict_candidates(

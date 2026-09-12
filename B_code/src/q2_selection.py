@@ -163,6 +163,11 @@ class CandidateCell:
     boundary_flag: bool = False
     cell_exclusion_certified: bool = False
     parent_ids: tuple[str, ...] = ()
+    objective_parent_ids: tuple[str, ...] = ()
+    region_refinement: bool = True
+    objective_refinement: bool = False
+    center_in_move_domain: bool = True
+    omega_boundary_flag: bool = False
 
     def to_record(self) -> dict:
         candidate = None if self.m4_result is None else self.m4_result.get("candidate")
@@ -189,6 +194,11 @@ class CandidateCell:
             "cell_exclusion_certified": self.cell_exclusion_certified,
             "sample_counterexample": None if self.sample_counterexample is None else list(self.sample_counterexample),
             "parent_ids": list(self.parent_ids),
+            "objective_parent_ids": list(self.objective_parent_ids),
+            "region_refinement": self.region_refinement,
+            "objective_refinement": self.objective_refinement,
+            "center_in_move_domain": self.center_in_move_domain,
+            "omega_boundary_flag": self.omega_boundary_flag,
         }
 
 
@@ -1196,18 +1206,79 @@ def evaluate_candidate_nested(
 
 
 def _cell_class(cell: CandidateCell) -> str:
-    if cell.status == "STRICT_INTERIOR":
+    if cell.certificate is not None and cell.certificate.get("status") == "CERTIFIED_STRICT":
         return "strict"
     if cell.status in {"CERTIFIED_VIOLATION_SAMPLE", "CERTIFIED_VIOLATION", "LMIN_EXCLUDED"}:
         return "violated"
     return "unresolved"
 
 
+def _bbox_intersects(
+    a: Sequence[float], b: Sequence[float], eps: float = 0.0
+) -> bool:
+    return not (
+        a[2] < b[0] - eps or b[2] < a[0] - eps
+        or a[3] < b[1] - eps or b[3] < a[1] - eps
+    )
+
+
+def _point_in_bbox(point: Point, bbox: Sequence[float], eps: float) -> bool:
+    return (
+        bbox[0] - eps <= point[0] <= bbox[2] + eps
+        and bbox[1] - eps <= point[1] <= bbox[3] + eps
+    )
+
+
+def _segments_intersect(a: Point, b: Point, c: Point, d: Point, eps: float) -> bool:
+    def orient(p: Point, q: Point, r: Point) -> float:
+        return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+
+    values = (orient(a, b, c), orient(a, b, d), orient(c, d, a), orient(c, d, b))
+    scale = max(1.0, _distance(a, b), _distance(c, d))
+    cross_eps = eps * scale
+    if values[0] * values[1] < -cross_eps * cross_eps and values[2] * values[3] < -cross_eps * cross_eps:
+        return True
+    return any(
+        abs(value) <= cross_eps and _point_in_bbox(point, (
+            min(edge_a[0], edge_b[0]), min(edge_a[1], edge_b[1]),
+            max(edge_a[0], edge_b[0]), max(edge_a[1], edge_b[1]),
+        ), eps)
+        for value, point, edge_a, edge_b in (
+            (values[0], c, a, b), (values[1], d, a, b),
+            (values[2], a, c, d), (values[3], b, c, d),
+        )
+    )
+
+
+def _cell_intersects_omega(
+    bbox: Sequence[float], omega_move: Sequence[Point], omega_kind: str,
+    tolerances: NumericalTolerances,
+) -> bool:
+    eps = tolerances.eps_geo
+    corners = [
+        (bbox[0], bbox[1]), (bbox[2], bbox[1]),
+        (bbox[2], bbox[3]), (bbox[0], bbox[3]),
+    ]
+    if any(point_in_convex_region(corner, omega_move, omega_kind, tolerances) for corner in corners):
+        return True
+    if any(_point_in_bbox(point, bbox, eps) for point in omega_move):
+        return True
+    if len(omega_move) < 2:
+        return False
+    omega_edges = list(zip(omega_move, omega_move[1:] + omega_move[:1]))
+    cell_edges = list(zip(corners, corners[1:] + corners[:1]))
+    return any(
+        _segments_intersect(a, b, c, d, eps)
+        for a, b in omega_edges for c, d in cell_edges
+    )
+
+
 def _candidate_cells(
     bounds: Sequence[float],
     level_m: float,
     omega_move: Optional[Sequence[Point]],
-    parents: Optional[Sequence[CandidateCell]],
+    region_parents: Optional[Sequence[CandidateCell]],
+    objective_parents: Optional[Sequence[CandidateCell]],
     tolerances: NumericalTolerances,
 ) -> list[CandidateCell]:
     lo_x, lo_y, hi_x, hi_y = map(float, bounds)
@@ -1219,31 +1290,41 @@ def _candidate_cells(
     cells = []
     for ix in range(ix0, ix1 + 1):
         x = (ix + 0.5) * level_m
-        if x < lo_x or x > hi_x:
-            continue
         for iy in range(iy0, iy1 + 1):
             y = (iy + 0.5) * level_m
-            if y < lo_y or y > hi_y:
-                continue
             center = (x, y)
-            if omega_move is not None and not point_in_convex_region(
-                center, omega_move, omega_kind, tolerances
+            bbox = (ix * level_m, iy * level_m, (ix + 1) * level_m, (iy + 1) * level_m)
+            if omega_move is not None and not _cell_intersects_omega(
+                bbox, omega_move, omega_kind, tolerances
             ):
                 continue
-            containing = [] if parents is None else [
-                parent.cell_id for parent in parents
-                if parent.bbox[0] <= x <= parent.bbox[2] and parent.bbox[1] <= y <= parent.bbox[3]
+            containing = [] if region_parents is None else [
+                parent.cell_id for parent in region_parents
+                if _bbox_intersects(bbox, parent.bbox, tolerances.eps_geo)
             ]
-            if parents is not None and not containing:
+            if region_parents is not None and not containing:
                 continue
+            objective_containing = [] if objective_parents is None else [
+                parent.cell_id for parent in objective_parents
+                if _bbox_intersects(bbox, parent.bbox, tolerances.eps_geo)
+            ]
+            center_in_bounds = lo_x <= x <= hi_x and lo_y <= y <= hi_y
+            center_in_omega = omega_move is None or point_in_convex_region(
+                center, omega_move, omega_kind, tolerances
+            )
+            center_in_domain = center_in_bounds and center_in_omega
             cells.append(CandidateCell(
                 cell_id=f"L{level_m:g}_X{ix}_Y{iy}",
                 level_m=level_m,
                 ix=ix,
                 iy=iy,
                 center=center,
-                bbox=(ix * level_m, iy * level_m, (ix + 1) * level_m, (iy + 1) * level_m),
+                bbox=bbox,
                 parent_ids=tuple(sorted(containing)),
+                objective_parent_ids=tuple(sorted(objective_containing)),
+                objective_refinement=(objective_parents is None or bool(objective_containing)) and center_in_domain,
+                center_in_move_domain=center_in_domain,
+                omega_boundary_flag=not center_in_domain,
             ))
     return cells
 
@@ -1329,12 +1410,15 @@ def _jsonable(value):
 def _write_m5a_outputs(output_dir: str | Path, result: dict) -> None:
     directory = Path(output_dir)
     directory.mkdir(parents=True, exist_ok=True)
-    all_cells: list[CandidateCell] = result["cells"]
-    # Resolution ordering is descending, so the numerically smallest level is final.
-    final_level = min(cell.level_m for cell in all_cells)
+    all_cells: list[CandidateCell] = result["region_cells"]
+    # Resolution ordering is descending, so the configured smallest level is final.
+    final_level = min(result["candidate_levels_m"])
     final_cells = [cell for cell in all_cells if cell.level_m == final_level]
     records = [cell.to_record() for cell in all_cells]
-    strict_records = [cell.to_record() for cell in final_cells if cell.status == "STRICT_INTERIOR"]
+    strict_records = [
+        cell.to_record() for cell in final_cells
+        if _cell_class(cell) == "strict" and cell.center_in_move_domain
+    ]
     for filename, rows in (("candidate_status.csv", records), ("strict_candidates.csv", strict_records)):
         fieldnames = list(rows[0]) if rows else list(CandidateCell("", 0, 0, 0, (0, 0), (0, 0, 0, 0)).to_record())
         with (directory / filename).open("w", newline="", encoding="utf-8") as handle:
@@ -1345,8 +1429,14 @@ def _write_m5a_outputs(output_dir: str | Path, result: dict) -> None:
     features = []
     for cell in final_cells:
         properties = cell.to_record()
-        properties.update({"artifact_status": "DEVELOPMENT", "final_result": False})
-        if cell.status == "STRICT_INTERIOR":
+        properties.update({
+            "artifact_status": "DEVELOPMENT",
+            "final_result": False,
+            "eps_rec_m": result["eps_rec_m"],
+            "eps_rec_source": result["eps_rec_source"],
+            "eps_rec_status": "EPS_REC_PROVISIONAL",
+        })
+        if _cell_class(cell) == "strict" and cell.center_in_move_domain:
             geometry = {"type": "Point", "coordinates": list(cell.center)}
             properties["representation"] = "point_certified"
             features.append({"type": "Feature", "geometry": geometry, "properties": properties})
@@ -1359,6 +1449,9 @@ def _write_m5a_outputs(output_dir: str | Path, result: dict) -> None:
         "type": "FeatureCollection",
         "name": "Fstrict DEVELOPMENT point-certified approximation",
         "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+        "eps_rec_m": result["eps_rec_m"],
+        "eps_rec_source": result["eps_rec_source"],
+        "eps_rec_status": "EPS_REC_PROVISIONAL",
         "features": features,
     }
     (directory / "Fstrict.geojson").write_text(json.dumps(geojson, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -1374,7 +1467,10 @@ def _write_m5a_outputs(output_dir: str | Path, result: dict) -> None:
         "selected_strict": _jsonable(selection["selected_strict"]),
     }
     (directory / "selection_dev.json").write_text(json.dumps(selection_payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    diagnostics_payload = _jsonable({key: value for key, value in result.items() if key not in {"cells", "selection"}})
+    diagnostics_payload = _jsonable({
+        key: value for key, value in result.items()
+        if key not in {"cells", "region_cells", "objective_cells", "selection"}
+    })
     diagnostics_payload["artifact_status"] = "DEVELOPMENT / NOT_FINAL_Q2_RESULT"
     (directory / "candidate_search_diagnostics.json").write_text(
         json.dumps(diagnostics_payload, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -1411,24 +1507,35 @@ def search_strict_candidates(
     levels = tuple(float(level) for level in cfg.candidate_steps_m)
     if levels != (50.0, 20.0, 5.0):
         raise ValueError("M5A candidate_steps_m must be exactly (50,20,5)")
-    all_cells: list[CandidateCell] = []
+    region_cells: list[CandidateCell] = []
+    objective_cells: list[CandidateCell] = []
     level_diagnostics = []
     near_optimal_components = []
-    parents: Optional[list[CandidateCell]] = None
+    region_parents: Optional[list[CandidateCell]] = None
+    objective_parents: Optional[list[CandidateCell]] = None
     search_started = time.perf_counter()
 
     for level in levels:
         level_started = time.perf_counter()
-        cells = _candidate_cells(bounds, level, omega, parents, cfg.tolerances)
+        cells = _candidate_cells(
+            bounds, level, omega, region_parents, objective_parents, cfg.tolerances
+        )
         counters = {
             "candidate_total": len(cells), "sample_rejected": 0,
+            "region_candidate_count": len(cells),
+            "objective_candidate_count": sum(cell.objective_refinement for cell in cells),
+            "certificate_calls": 0,
             "certificate_violation": 0, "certificate_strict": 0,
             "certificate_unresolved": 0, "M4_evaluated": 0,
             "M4_pass": 0, "M4_unresolved": 0, "lmin_excluded": 0,
             "cell_exclusion_certified": 0,
         }
+        cell_half_diagonal = math.sqrt(2.0) * level / 2.0
         for cell in cells:
-            cell_half_diagonal = math.sqrt(2.0) * level / 2.0
+            if not cell.center_in_move_domain:
+                cell.status = "OMEGA_BOUNDARY_UNRESOLVED"
+                cell.boundary_flag = True
+                continue
             if _distance(cell.center, s1) < cfg.lmin_m:
                 counters["lmin_excluded"] += 1
                 if _distance(cell.center, s1) + cell_half_diagonal < cfg.lmin_m:
@@ -1461,6 +1568,7 @@ def search_strict_candidates(
                     cell.boundary_flag = True
                 continue
             certificate = certificate_fn(cell.center, p1, s1, cfg)
+            counters["certificate_calls"] += 1
             cell.certificate = certificate
             if certificate["status"] == "CERTIFIED_VIOLATION":
                 cell.status = "CERTIFIED_VIOLATION"
@@ -1478,15 +1586,18 @@ def search_strict_candidates(
                 counters["certificate_unresolved"] += 1
             elif certificate["status"] == "CERTIFIED_STRICT":
                 counters["certificate_strict"] += 1
-                counters["M4_evaluated"] += 1
-                m4_result = m4_fn(cell.center, s1, p1, cfg)
-                cell.m4_result = m4_result
-                if m4_result["status"] == "PASS":
-                    cell.status = "STRICT_INTERIOR"
-                    counters["M4_pass"] += 1
+                if cell.objective_refinement:
+                    counters["M4_evaluated"] += 1
+                    m4_result = m4_fn(cell.center, s1, p1, cfg)
+                    cell.m4_result = m4_result
+                    if m4_result["status"] == "PASS":
+                        cell.status = "STRICT_INTERIOR"
+                        counters["M4_pass"] += 1
+                    else:
+                        cell.status = "EVALUATION_UNRESOLVED"
+                        counters["M4_unresolved"] += 1
                 else:
-                    cell.status = "EVALUATION_UNRESOLVED"
-                    counters["M4_unresolved"] += 1
+                    cell.status = "POINT_CERTIFIED_STRICT"
             else:
                 raise ValueError(f"unknown certificate status {certificate['status']!r}")
         _mark_boundaries(cells)
@@ -1513,16 +1624,38 @@ def search_strict_candidates(
             })
         counters["runtime_s"] = time.perf_counter() - level_started
         level_diagnostics.append(counters)
-        all_cells.extend(cells)
+        region_cells.extend(cells)
+        objective_cells.extend(cell for cell in cells if cell.objective_refinement)
         if level != levels[-1]:
             selected_ids = {
                 cell.cell_id for index in selected_component_indices for cell in components[index]
             }
-            parents = [cell for cell in cells if cell.boundary_flag or cell.cell_id in selected_ids]
-            if not parents:
-                parents = [cell for cell in cells if _cell_class(cell) == "unresolved"]
+            region_parents = [cell for cell in cells if not cell.cell_exclusion_certified]
+            if c20_cells:
+                best_t2 = min(cell.m4_result["candidate"].T2 for cell in c20_cells)
+                objective_parents = [
+                    cell for cell in cells
+                    if cell.objective_refinement and not cell.cell_exclusion_certified
+                    and (
+                        cell.cell_id in selected_ids
+                        or (
+                            _cell_class(cell) != "strict"
+                            and max(
+                                0.0,
+                                _distance(cell.center, s1) - cell_half_diagonal,
+                            ) / SPEED_MPS
+                            <= best_t2 + 1.0e-3 * max(1.0, best_t2)
+                        )
+                    )
+                ]
+            else:
+                # Without C20, retain every potentially Pareto-competitive branch.
+                objective_parents = [
+                    cell for cell in cells
+                    if cell.objective_refinement and not cell.cell_exclusion_certified
+                ]
 
-    final_cells = [cell for cell in all_cells if cell.level_m == levels[-1]]
+    final_cells = [cell for cell in objective_cells if cell.level_m == levels[-1]]
     evaluated = [
         cell.m4_result["candidate"] for cell in final_cells
         if cell.status == "STRICT_INTERIOR" and cell.m4_result is not None
@@ -1537,8 +1670,22 @@ def search_strict_candidates(
         "search_box": bounds,
         "candidate_levels_m": list(levels),
         "level_diagnostics": level_diagnostics,
+        "region_candidate_count_by_level": {
+            f"{level:g}": sum(cell.level_m == level for cell in region_cells) for level in levels
+        },
+        "objective_candidate_count_by_level": {
+            f"{level:g}": sum(cell.level_m == level for cell in objective_cells) for level in levels
+        },
+        "certificate_calls": sum(item["certificate_calls"] for item in level_diagnostics),
+        "M4_calls": sum(item["M4_evaluated"] for item in level_diagnostics),
         "near_optimal_components": near_optimal_components,
-        "cells": all_cells,
+        "region_cells": region_cells,
+        "objective_cells": objective_cells,
+        "cells": region_cells,
+        "omega_boundary_method": (
+            "not_applicable" if omega is None
+            else "conservative cell-bbox/polygon intersection; outside-center cells remain uncertainty"
+        ),
         "selection": selection,
         "runtime_s": time.perf_counter() - search_started,
         "warnings": ["EPS_REC_PROVISIONAL"] if cfg.eps_rec_m is None else [],

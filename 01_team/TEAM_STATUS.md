@@ -11,7 +11,7 @@
 
 ## 进行中
 
-- Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M4.1 与 M5A strict candidate search 已实现；M5B--M6 待实现。
+- Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M4.1、M5A strict candidate search 与 M5A.1 region/objective 双细化链已实现；M5B--M6 待实现。
 
 ## 待验证
 
