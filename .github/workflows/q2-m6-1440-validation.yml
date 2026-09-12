@@ -27,13 +27,104 @@ jobs:
           import json
           result = run_1440_baseline()
           print(json.dumps(result, ensure_ascii=False, indent=2))
-          if result.get('status') != 'PASS':
-              raise SystemExit(2)
+          PY
+      - name: Diagnose candidate-grid phase with 10m and 2.5m levels
+        env:
+          PYTHONPATH: B_code/src
+        run: |
+          python - <<'PY'
+          import json, math
+          from pathlib import Path
+          import q2_selection as q2
+          from q2_certificate_acceleration import PhysicalCertificateTree, StrictCertificateAccelerator
+
+          out = Path('03_results/q2/m6_validation/candidate_phase_diagnostic')
+          out.mkdir(parents=True, exist_ok=True)
+          S1 = (1700.0, 0.0)
+          cfg = q2.Q2Config(
+              circle_sides=1440,
+              eps_rec_cert_m=1e-3,
+              lmin_m=50.0,
+              candidate_steps_m=(50.0, 20.0, 10.0, 5.0, 2.5),
+          )
+          p1 = q2.build_P1_bound(S1, 0.0, cfg)
+          engine = StrictCertificateAccelerator(PhysicalCertificateTree(p1, S1, cfg), cfg)
+          levels = {}
+
+          def checkpoint(level, cells, diagnostics, c20_cells):
+              evaluated = [
+                  cell.m4_result['candidate'] for cell in cells
+                  if cell.m4_result is not None and cell.m4_result.get('status') == 'PASS'
+              ]
+              selection = q2.select_from_evaluated(evaluated)
+              selected = selection['selected_strict']
+              levels[str(level)] = {
+                  'grid_level_m': level,
+                  'region_candidate_count': len(cells),
+                  'objective_candidate_count': sum(cell.objective_refinement for cell in cells),
+                  'Cstrict_evaluated_count': len(selection['Cstrict']),
+                  'C20_evaluated_count': len(selection['C20']),
+                  'selected': None if selected is None else {
+                      'S2': list(selected.S2), 'T2': selected.T2,
+                      'JD': selected.JD, 'JR': selected.JR, 'JA': selected.JA,
+                      'official20': selected.official20,
+                  },
+                  'diagnostics': {
+                      k: diagnostics.get(k) for k in (
+                          'certificate_unresolved', 'certificate_uncertain_boundary',
+                          'certificate_strict', 'M4_evaluated', 'runtime_s'
+                      )
+                  },
+              }
+
+          search = q2.search_strict_candidates(
+              S1, 0.0, cfg, P1_bound=p1,
+              certificate_batch_engine=engine,
+              pass_certificate_to_m4=True,
+              lazy_objective=True,
+              level_checkpoint_fn=checkpoint,
+          )
+          ordered = [50.0, 20.0, 10.0, 5.0, 2.5]
+          transitions = []
+          for a, b in zip(ordered, ordered[1:]):
+              A = levels[str(a)]['selected']
+              B = levels[str(b)]['selected']
+              rec = {'from_m': a, 'to_m': b}
+              if A is None or B is None:
+                  rec['status'] = 'UNRESOLVED'
+              else:
+                  rec['status'] = 'OK'
+                  rec['S2_distance_m'] = math.hypot(A['S2'][0]-B['S2'][0], A['S2'][1]-B['S2'][1])
+                  rec['relchg_T2'] = q2.relchg(A['T2'], B['T2'])
+                  rec['relchg_JD'] = q2.relchg(A['JD'], B['JD'])
+                  rec['relchg_JR'] = q2.relchg(A['JR'], B['JR'])
+              transitions.append(rec)
+          payload = {
+              'artifact_status': 'DIAGNOSTIC / NOT_FORMAL_M6_RESULT',
+              'purpose': 'candidate-grid phase/convergence diagnosis only',
+              'levels': levels,
+              'transitions': transitions,
+          }
+          (out/'candidate_phase.json').write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
+          print(json.dumps(payload, ensure_ascii=False, indent=2))
           PY
       - name: Upload validation artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: q2-m6-1440-validation
-          path: 03_results/q2/m6_validation/1440_baseline
+          path: |
+            03_results/q2/m6_validation/1440_baseline
+            03_results/q2/m6_validation/candidate_phase_diagnostic
           if-no-files-found: warn
+      - name: Enforce formal 1440 gate
+        env:
+          PYTHONPATH: B_code/src
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          summary = json.loads(Path('03_results/q2/m6_validation/1440_baseline/summary.json').read_text())
+          if summary.get('status') != 'PASS':
+              raise SystemExit(2)
+          PY
