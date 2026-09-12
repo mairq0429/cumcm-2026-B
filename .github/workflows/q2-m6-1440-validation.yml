@@ -28,7 +28,7 @@ jobs:
           result = run_1440_baseline()
           print(json.dumps(result, ensure_ascii=False, indent=2))
           PY
-      - name: Diagnose candidate-grid phase with 10m and 2.5m levels
+      - name: Diagnose local C20 frontier without changing formal grid
         env:
           PYTHONPATH: B_code/src
         run: |
@@ -38,75 +38,103 @@ jobs:
           import q2_selection as q2
           from q2_certificate_acceleration import PhysicalCertificateTree, StrictCertificateAccelerator
 
-          out = Path('03_results/q2/m6_validation/candidate_phase_diagnostic')
+          out = Path('03_results/q2/m6_validation/candidate_frontier_diagnostic')
           out.mkdir(parents=True, exist_ok=True)
           S1 = (1700.0, 0.0)
-          cfg = q2.Q2Config(
-              circle_sides=1440,
-              eps_rec_cert_m=1e-3,
-              lmin_m=50.0,
-              candidate_steps_m=(50.0, 20.0, 10.0, 5.0, 2.5),
-          )
+          cfg = q2.Q2Config(circle_sides=1440, eps_rec_cert_m=1e-3, lmin_m=50.0)
           p1 = q2.build_P1_bound(S1, 0.0, cfg)
           engine = StrictCertificateAccelerator(PhysicalCertificateTree(p1, S1, cfg), cfg)
-          levels = {}
 
-          def checkpoint(level, cells, diagnostics, c20_cells):
-              evaluated = [
-                  cell.m4_result['candidate'] for cell in cells
-                  if cell.m4_result is not None and cell.m4_result.get('status') == 'PASS'
-              ]
-              selection = q2.select_from_evaluated(evaluated)
-              selected = selection['selected_strict']
-              levels[str(level)] = {
-                  'grid_level_m': level,
-                  'region_candidate_count': len(cells),
-                  'objective_candidate_count': sum(cell.objective_refinement for cell in cells),
-                  'Cstrict_evaluated_count': len(selection['Cstrict']),
-                  'C20_evaluated_count': len(selection['C20']),
-                  'selected': None if selected is None else {
-                      'S2': list(selected.S2), 'T2': selected.T2,
-                      'JD': selected.JD, 'JR': selected.JR, 'JA': selected.JA,
-                      'official20': selected.official20,
-                  },
-                  'diagnostics': {
-                      k: diagnostics.get(k) for k in (
-                          'certificate_unresolved', 'certificate_uncertain_boundary',
-                          'certificate_strict', 'M4_evaluated', 'runtime_s'
-                      )
-                  },
+          # Diagnostic-only local 2.5 m lattice around the formal 20 m and 5 m selections.
+          # This does not alter search_strict_candidates or the formal (50,20,5) grid.
+          step = 2.5
+          points = []
+          x = 1690.0
+          while x <= 1750.0 + 1e-12:
+              y = -70.0
+              while y <= -20.0 + 1e-12:
+                  if math.hypot(x-S1[0], y-S1[1]) + 1e-12 >= cfg.lmin_m:
+                      points.append((round(x, 10), round(y, 10)))
+                  y += step
+              x += step
+
+          batch = engine.certify_points(points, 0.0)
+          certs = batch['certificates']
+          sources = q2.build_Gext(p1, S1, 20.0)
+          rows = []
+          inconclusive = []
+          for point in points:
+              cert = certs[point]
+              row = {
+                  'S2': list(point),
+                  'T2': math.hypot(point[0]-S1[0], point[1]-S1[1]) / q2.SPEED_MPS,
+                  'certificate_status': cert['status'],
+                  'L_rec_m': cert.get('L_rec_m'),
+                  'U_rec_m': cert.get('U_rec_m'),
               }
+              if cert['status'] == 'CERTIFIED_STRICT':
+                  screen = q2.screen_candidate_c20(point, S1, p1, sources, cfg)
+                  row['cheap_screen'] = screen['screen_status']
+                  row['cheap_sample_JR'] = screen['sample_JR']
+                  if screen['screen_status'] != 'PROVEN_NOT_C20':
+                      inconclusive.append((row['T2'], point))
+              rows.append(row)
 
-          search = q2.search_strict_candidates(
-              S1, 0.0, cfg, P1_bound=p1,
-              certificate_batch_engine=engine,
-              pass_certificate_to_m4=True,
-              lazy_objective=True,
-              level_checkpoint_fn=checkpoint,
-          )
-          ordered = [50.0, 20.0, 10.0, 5.0, 2.5]
-          transitions = []
-          for a, b in zip(ordered, ordered[1:]):
-              A = levels[str(a)]['selected']
-              B = levels[str(b)]['selected']
-              rec = {'from_m': a, 'to_m': b}
-              if A is None or B is None:
-                  rec['status'] = 'UNRESOLVED'
-              else:
-                  rec['status'] = 'OK'
-                  rec['S2_distance_m'] = math.hypot(A['S2'][0]-B['S2'][0], A['S2'][1]-B['S2'][1])
-                  rec['relchg_T2'] = q2.relchg(A['T2'], B['T2'])
-                  rec['relchg_JD'] = q2.relchg(A['JD'], B['JD'])
-                  rec['relchg_JR'] = q2.relchg(A['JR'], B['JR'])
-              transitions.append(rec)
+          # Full M4 only for the lowest-T2 strict candidates whose one-sided screen
+          # cannot already prove they are outside C20, plus both formal selected points.
+          formal_points = {(1710.0, -50.0), (1727.5, -42.5)}
+          eval_points = []
+          seen = set()
+          for _, point in sorted(inconclusive)[:40]:
+              if point not in seen:
+                  eval_points.append(point); seen.add(point)
+          for point in sorted(formal_points):
+              if point not in seen:
+                  eval_points.append(point); seen.add(point)
+
+          evaluations = []
+          for point in eval_points:
+              cert = certs.get(point)
+              if cert is None:
+                  cert = q2.certified_strict(point, p1, S1, cfg)
+              result = q2.evaluate_candidate_nested(
+                  point, S1, p1, cfg, certificate_override=cert
+              )
+              candidate = result.get('candidate')
+              evaluations.append({
+                  'S2': list(point),
+                  'T2': math.hypot(point[0]-S1[0], point[1]-S1[1]) / q2.SPEED_MPS,
+                  'certificate_status': cert['status'],
+                  'M4_status': result.get('status'),
+                  'source_convergence': result.get('source_convergence'),
+                  'error_convergence': result.get('error_convergence'),
+                  'gverify': result.get('gverify', {}).get('status'),
+                  'warnings': result.get('warnings', []),
+                  'JD': None if candidate is None else candidate.JD,
+                  'JR': None if candidate is None else candidate.JR,
+                  'JA': None if candidate is None else candidate.JA,
+                  'official20': None if candidate is None else candidate.official20,
+                  'operational17': None if candidate is None else candidate.operational17,
+              })
+
+          c20 = [r for r in evaluations if r['M4_status']=='PASS' and r['certificate_status']=='CERTIFIED_STRICT' and r['official20'] is True]
+          best = min(c20, key=lambda r: (r['T2'], r['JR'], r['JD'], r['S2'][0], r['S2'][1])) if c20 else None
           payload = {
               'artifact_status': 'DIAGNOSTIC / NOT_FORMAL_M6_RESULT',
-              'purpose': 'candidate-grid phase/convergence diagnosis only',
-              'levels': levels,
-              'transitions': transitions,
+              'purpose': 'local C20 frontier diagnosis; formal candidate grid remains exactly (50,20,5)',
+              'lattice': {'step_m': step, 'x_range': [1690.0,1750.0], 'y_range': [-70.0,-20.0], 'point_count': len(points)},
+              'certificate_batch': {k:v for k,v in batch.items() if k != 'certificates'},
+              'status_counts': {
+                  status: sum(certs[p]['status']==status for p in points)
+                  for status in ('CERTIFIED_STRICT','CERTIFIED_VIOLATION','UNCERTAIN_BOUNDARY','UNRESOLVED')
+              },
+              'full_M4_evaluation_count': len(evaluations),
+              'best_diagnostic_C20': best,
+              'evaluations': evaluations,
+              'point_screen_records': rows,
           }
-          (out/'candidate_phase.json').write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
-          print(json.dumps(payload, ensure_ascii=False, indent=2))
+          (out/'local_frontier.json').write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
+          print(json.dumps({k:v for k,v in payload.items() if k not in ('point_screen_records',)}, ensure_ascii=False, indent=2))
           PY
       - name: Upload validation artifacts
         if: always()
@@ -115,7 +143,7 @@ jobs:
           name: q2-m6-1440-validation
           path: |
             03_results/q2/m6_validation/1440_baseline
-            03_results/q2/m6_validation/candidate_phase_diagnostic
+            03_results/q2/m6_validation/candidate_frontier_diagnostic
           if-no-files-found: warn
       - name: Enforce formal 1440 gate
         env:
