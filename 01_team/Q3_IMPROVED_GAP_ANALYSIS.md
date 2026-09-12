@@ -117,9 +117,9 @@ It did not advance local time/position. Successful actions expose increasing
 do not expose raw request IDs or response bodies, so duplicate-commit and
 same-id replay behavior are not historically checkable.
 
-## 6. P0 model/protocol risks requiring resolution
+## 6. Model/protocol scope findings
 
-### R1: directional `NO_SIGNAL` versus fixed-R negative geometry (blocker)
+### R1: directional `NO_SIGNAL` versus fixed-R negative geometry
 
 The official attachment says `no_signal` can mean (a) absent/already cleared,
 (b) beyond the fixed receive radius, or (c) a directional source not covering
@@ -127,17 +127,20 @@ the observation point. Therefore, for an arbitrary source type, a raw
 `no_signal` does **not** by itself prove `|G-S| > R`. The proposed fixed-R
 negative constraint and whole-box exclusions are safe only under an additional
 proved condition (for example, the channel is known omnidirectional) or a
-directional-source-aware feasible model. No such proof or type signal exists
-in the audited repository.
+directional-source-aware feasible model. For Q3-improved-v1 the modeling owner
+has now frozen the scope to **Problem 3 omnidirectional sources only**.
+Accordingly this finding is `OUT_OF_SCOPE_FOR_Q3_OMNIDIRECTIONAL`, not a Q3 P0
+blocker, and the implementation must not be reused for directional sources.
 
-### R2: seven-negative absence certificate for directional sources (blocker)
+### R2: seven-negative absence certificate for directional sources
 
 For the same reason, seven accepted negative samples require a geometric proof
 that every possible source position, receive radius and 180-degree directional
 orientation would be detected at at least one fixed node. The audited model
 and code do not contain that proof. The four runs with known truth were
-manually reported as all-omnidirectional, but this does not establish the rule
-for future Q3 cases.
+manually reported as all-omnidirectional, but this does not establish a general
+simulator rule. This is retained as
+`OUT_OF_SCOPE_FOR_Q3_OMNIDIRECTIONAL` under the frozen Q3-only scope.
 
 ### R3: meaning of `no_target_in_range`
 
@@ -179,8 +182,8 @@ only when P0 orchestration is ready.
 
 Implementation order after approval:
 
-1. Resolve R1/R2 with the modeling owner; freeze the exact semantics in
-   `MODEL_SPEC.md` before geometry code.
+1. Preserve the frozen omnidirectional-only scope in code and documentation;
+   never expose the absence rule as a directional-source invariant.
 2. Implement protocol/outcome types, adapter retry journal and raw action log;
    test accepted-false and unknown-outcome separation first.
 3. Implement immutable observations, coverage ledger, channel transitions and
@@ -202,5 +205,5 @@ Implementation order after approval:
 
 `Q3-improved-v1`: **CODED = NO, TESTED = NO, VERIFIED = NO**.
 
-This stage is documentation/audit only. The next implementation stage should
-not begin until the directional-source questions R1 and R2 are answered.
+Q3I-01 was documentation/audit only. R1/R2 are closed for Q3 by the explicit
+omnidirectional-only scope, while remaining invalid for directional reuse.

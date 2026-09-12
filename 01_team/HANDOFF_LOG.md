@@ -21,6 +21,17 @@
 - 状态：VERIFIED
 - 尚未解决风险：REPAIRED 是否允许未来自动进入 Q3 clear 流程尚未决定，本实现未作 Q3 集成。
 
+- handoff id：Q3I-02-C-MW-20260912-01
+- 时间：2026-09-12
+- 发送人：C（编程实现）
+- 接收人：M/W（建模/写作）
+- 问题编号：Q3
+- 版本：Q3-improved-v1 / Q3I-02
+- 结论：完成 normalized protocol adapter、六态频道状态机、20×7 coverage、`900*sqrt(3)` 七点确定性调度、terminal certificate 与可读历史 console replay；未进入 Q3I-03。
+- 适用范围：仅问题三全向源；七点缺席证书不得复用于定向源。
+- 验证方法：Q3I-02 S01--S18、C01 integration、C02、C03、C06、七点坐标与 dense-grid sanity、历史 console clear 计数 replay。
+- 状态：阶段 COMPLETE；整体 CODED=NO / TESTED=NO / VERIFIED=NO。
+
 - handoff id：待填写
 - 时间：待填写
 - 发送人：待填写

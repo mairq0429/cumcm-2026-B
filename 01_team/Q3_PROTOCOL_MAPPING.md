@@ -12,6 +12,11 @@ The official `.jlog` action frames are encrypted and no decoder/key is present
 in the repository. Their filenames and cleartext envelopes are observed, but
 their per-action payloads cannot be used as raw-response evidence here.
 
+> **SCOPE ASSUMPTION:** Q3 absence certification is valid only for the
+> omnidirectional-source model of Problem 3. It must not be reused for
+> directional sources. This is a Q3 model scope restriction, not a general
+> simulator invariant.
+
 ## 2. Common request and response fields
 
 | Item | Mapping | Status | Evidence/notes |
@@ -118,11 +123,11 @@ lost.
 | `success` | specified channel source cleared | channel cleared | CONFIRMED_BY_SPEC |
 | `no_target_in_range` | absent, already cleared, or distance `>20` | known unsuccessful accepted clear; no unconditional geometry fact | CONFIRMED_BY_SPEC |
 
-**UNCONFIRMED model step:** treating every `no_signal` on a detected but
-possibly directional channel as `distance > fixed R` is not justified by the
-wire protocol. Likewise, seven negative fixed-node responses do not yet have
-an audited directional-source absence proof. These must remain explicit model
-TODOs before P0 geometry/absence implementation.
+For directional sources, treating every `no_signal` as `distance > fixed R`
+is not justified by the wire protocol, and seven negative nodes do not provide
+an audited directional-source absence proof. This historical audit finding is
+retained as **OUT_OF_SCOPE_FOR_Q3_OMNIDIRECTIONAL**: Q3-improved-v1 is limited
+to the Problem 3 omnidirectional-source model. It must not be generalized.
 
 ## 8. Replay checkability for Q3-S-001--005
 
