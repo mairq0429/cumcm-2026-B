@@ -61,6 +61,18 @@ class TestQ2LazyObjective(unittest.TestCase):
         lazy_region = {(c.level_m, c.ix, c.iy) for c in lazy["region_cells"] if c.certificate}
         full_region = {(c.level_m, c.ix, c.iy) for c in full["region_cells"] if c.certificate}
         self.assertEqual(lazy_region, full_region)
+        best_50 = min(
+            c.m4_result["candidate"].T2 for c in lazy["objective_cells"]
+            if c.level_m == 50.0 and c.m4_result is not None
+            and c.m4_result["candidate"].official20
+        )
+        retained_by_lower_bound = [
+            c for c in lazy["objective_cells"] if c.level_m == 20.0
+            and ((c.center[0] ** 2 + c.center[1] ** 2) ** 0.5) / 5.0 > best_50
+            and max(0.0, (c.center[0] ** 2 + c.center[1] ** 2) ** 0.5 - (2.0 ** 0.5) * 10.0) / 5.0
+            <= best_50 + 1.0e-3 * max(1.0, best_50)
+        ]
+        self.assertTrue(retained_by_lower_bound)
 
     def test_equal_T2_candidates_are_all_evaluated_for_tie_break(self):
         m4 = FakeM4(True)
