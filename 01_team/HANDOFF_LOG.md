@@ -72,6 +72,14 @@
 - 两个点均使用fresh P1重新获得`CERTIFIED_STRICT`，完整M4/source/error/Gverify/replay全部PASS，并分别得到JR=6.36898981m与5.52514801m；official20和operational17均为true。
 - 结论：`boundary_witness_exists=true`，结合所有admissible点的Lmin约束，代表性案例`PROVED_T2_STAR_EQ_10`。此结论仅为VALIDATION/DIAGNOSTIC；1440 candidate-grid sensitivity和T12状态不在本轮改变，2.5m/2880均未运行。
 
+# 2026-09-12 Q2 M6A.7b handoff
+
+- 采用2度全圆初扫（1度轻量评估需302次完整M4，接近300s边界）；180个角完整覆盖`[0,360)`。
+- strict=180，certificate unresolved/violation=0；cheap reject=30；完整M4后的C20=150。
+- sampled C20 arcs为4--152度与208--356度，共2个分离竞争分支；固定6角legacy/accelerated conflict=0。
+- secondary diagnostic best为314度，S2=(1734.7329185,-35.9669900)，JR=5.3894480，JD=10.7788961；仅供M6A.7c自适应polar refinement，不是最终签字。
+- 总runtime=157.54s，其中full M4=155.73s；未降低source/error/Gverify/replay标准，未运行2.5m、2880或M6B。
+
 # 2026-09-12 Q3I-04 handoff
 
 - 版本：Q3-improved-v1 / Q3I-04；Q3I-01--04 COMPLETE，Q3I-05 NOT_STARTED；整体 CODED=NO / TESTED=NO / VERIFIED=NO。
