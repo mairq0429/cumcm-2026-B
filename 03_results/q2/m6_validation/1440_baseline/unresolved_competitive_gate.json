@@ -1,0 +1,128 @@
+{
+  "status": "PASS_NONCOMPETITIVE_UNRESOLVED",
+  "selected_T2": 10.124228365658293,
+  "tolerance": 0.010124228365658294,
+  "tolerance_source": "candidate near-optimal refinement tolerance: 1e-3*max(1,T2_star)",
+  "unresolved_count": 6,
+  "competitive_count": 0,
+  "noncompetitive_count": 6,
+  "targeted_rechecks": 0,
+  "unresolved_after": 6,
+  "cells": [
+    {
+      "cell_id": "L5_X210_Y-133",
+      "center": [
+        1052.5,
+        -662.5
+      ],
+      "bbox": [
+        1050.0,
+        -665.0,
+        1055.0,
+        -660.0
+      ],
+      "half_diagonal_m": 3.5355339059327378,
+      "T2_lower_s": 184.56701445542868,
+      "certificate_status_before": "UNRESOLVED",
+      "certificate_status_after": "UNRESOLVED",
+      "competitive": false,
+      "recheck_performed": false
+    },
+    {
+      "cell_id": "L5_X210_Y132",
+      "center": [
+        1052.5,
+        662.5
+      ],
+      "bbox": [
+        1050.0,
+        660.0,
+        1055.0,
+        665.0
+      ],
+      "half_diagonal_m": 3.5355339059327378,
+      "T2_lower_s": 184.56701445542868,
+      "certificate_status_before": "UNRESOLVED",
+      "certificate_status_after": "UNRESOLVED",
+      "competitive": false,
+      "recheck_performed": false
+    },
+    {
+      "cell_id": "L5_X303_Y-192",
+      "center": [
+        1517.5,
+        -957.5
+      ],
+      "bbox": [
+        1515.0,
+        -960.0,
+        1520.0,
+        -955.0
+      ],
+      "half_diagonal_m": 3.5355339059327378,
+      "T2_lower_s": 194.24032202976235,
+      "certificate_status_before": "UNRESOLVED",
+      "certificate_status_after": "UNRESOLVED",
+      "competitive": false,
+      "recheck_performed": false
+    },
+    {
+      "cell_id": "L5_X303_Y191",
+      "center": [
+        1517.5,
+        957.5
+      ],
+      "bbox": [
+        1515.0,
+        955.0,
+        1520.0,
+        960.0
+      ],
+      "half_diagonal_m": 3.5355339059327378,
+      "T2_lower_s": 194.24032202976235,
+      "certificate_status_before": "UNRESOLVED",
+      "certificate_status_after": "UNRESOLVED",
+      "competitive": false,
+      "recheck_performed": false
+    },
+    {
+      "cell_id": "L5_X538_Y-32",
+      "center": [
+        2692.5,
+        -157.5
+      ],
+      "bbox": [
+        2690.0,
+        -160.0,
+        2695.0,
+        -155.0
+      ],
+      "half_diagonal_m": 3.5355339059327378,
+      "T2_lower_s": 200.27672341418014,
+      "certificate_status_before": "UNRESOLVED",
+      "certificate_status_after": "UNRESOLVED",
+      "competitive": false,
+      "recheck_performed": false
+    },
+    {
+      "cell_id": "L5_X538_Y31",
+      "center": [
+        2692.5,
+        157.5
+      ],
+      "bbox": [
+        2690.0,
+        155.0,
+        2695.0,
+        160.0
+      ],
+      "half_diagonal_m": 3.5355339059327378,
+      "T2_lower_s": 200.27672341418014,
+      "certificate_status_before": "UNRESOLVED",
+      "certificate_status_after": "UNRESOLVED",
+      "competitive": false,
+      "recheck_performed": false
+    }
+  ],
+  "artifact_status": "VALIDATION / NOT_FINAL_Q2_RESULT"
+}

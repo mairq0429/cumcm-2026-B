@@ -1,23 +1,41 @@
 {
   "case": "REPRESENTATIVE_CASE / NOT_UNIQUE_PROBLEM_ANSWER",
   "status": "UNRESOLVED",
-  "circle_sides": 1440,
-  "eps_rec_cert_m": 0.001,
-  "Lmin_m": 50.0,
-  "levels": {
-    "50": "PASS",
-    "20": "PASS",
-    "5": "UNRESOLVED_LEVEL_RUNTIME_LIMIT_EXCEEDED"
+  "selected": {
+    "S2": [
+      1727.5,
+      -42.5
+    ],
+    "T2": 10.124228365658293,
+    "JD": 10.918741543985456,
+    "JR": 5.459370771992837,
+    "JA": 17.30785927835882,
+    "official20": true,
+    "operational17": true
   },
-  "selected": null,
-  "candidate_convergence": "UNRESOLVED",
-  "source_convergence": "NOT_RUN",
-  "error_convergence": "NOT_RUN",
-  "Gverify": "NOT_RUN",
-  "replay": "NOT_RUN",
-  "monotone": "NOT_RUN",
+  "Cstrict_final_evaluated": 8,
+  "C20_final_evaluated": 8,
+  "pareto_size": 2,
+  "candidate_convergence": "CANDIDATE_GRID_SENSITIVE",
+  "source_convergence": "PASS",
+  "error_convergence": "PASS",
+  "Gverify": "PASS",
+  "replay": {
+    "JD": "PASS",
+    "JR": "PASS",
+    "JA": "PASS"
+  },
+  "monotone": true,
+  "Fstrict_component_count": 8,
+  "unresolved_final_count": 6,
+  "unresolved_competitive_count": 0,
+  "unresolved_noncompetitive_count": 6,
+  "unresolved_gate_status": "PASS_NONCOMPETITIVE_UNRESOLVED",
+  "runtime_s": 84.02928580000298,
+  "warnings": [
+    "CANDIDATE_GRID_SENSITIVE"
+  ],
   "T12_status": "UNRESOLVED",
   "entry_to_2880_comparison": false,
-  "warnings": ["LEVEL_5_RUNTIME_LIMIT_EXCEEDED"],
   "artifact_status": "VALIDATION / NOT_FINAL_Q2_RESULT"
 }

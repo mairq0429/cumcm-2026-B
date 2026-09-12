@@ -36,3 +36,10 @@
 - 验证方法：待填写
 - 影响论文章节：待填写
 - 状态：待填写
+# 2026-09-12 Q2 M6A.6 handoff
+
+- 基线：`9afce0061447b3a376b982213bbb220cd3cd269f`（当前分支另含不相交Q3审计commit）。
+- M6A.6 gate COMPLETE：最终5m的6个UNRESOLVED cells全部为noncompetitive；0 targeted rechecks；uncertainty polygons仍保留于Fstrict验证输出。
+- 完整1440代表性运行完成，runtime 84.03 s。5m selected=`(1727.5,-42.5)`，T2=10.1242284，JD=10.9187415，JR=5.45937077，JA=17.3078593，official20/operational17均true。
+- 独立source/error convergence、Gverify、JD/JR/JA replay、monotone均PASS。
+- 阻塞：20→5 relchg(T2,JD,JR)=0.0072377/0.130774/0.130774，状态`CANDIDATE_GRID_SENSITIVE`。因此1440/T12=`UNRESOLVED`，`entry_to_2880_comparison=false`；2880、eps sensitivity、Lmin sensitivity均NOT_RUN。

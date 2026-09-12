@@ -1,0 +1,660 @@
+{
+  "selected": {
+    "S2": [
+      1727.5,
+      -42.5
+    ],
+    "T2": 10.124228365658293,
+    "JD": 10.918741543985456,
+    "JR": 5.459370771992837,
+    "JA": 17.30785927835882,
+    "official20": true,
+    "operational17": true
+  },
+  "independent_full_M4": {
+    "status": "PASS",
+    "wording": "场景加密后的收敛数值最坏值",
+    "candidate": {
+      "S2": [
+        1727.5,
+        -42.5
+      ],
+      "strict_receive": true,
+      "certificate": {
+        "status": "CERTIFIED_STRICT",
+        "strict_receive": true,
+        "certified": true,
+        "method": "triangle_cell_2_lipschitz",
+        "L_rec_m": -934.291117694028,
+        "U_rec_m": -842.7418874625141,
+        "interval_width_m": 91.54923023151389,
+        "eps_rec_cert_m": 0.001,
+        "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
+        "cells_examined": 2,
+        "counterexample": null,
+        "reason": "global_upper_bound_nonpositive",
+        "boundary_uncertainty_m": 55.57214117457835,
+        "upper_bound_m": -842.7418874625141,
+        "upper_bound_m_alias_status": "DEPRECATED_USE_U_REC_M"
+      },
+      "T2": 10.124228365658293,
+      "JD": 10.918741543985456,
+      "JR": 5.459370771992837,
+      "JA": 17.30785927835882,
+      "official20": true,
+      "operational17": true,
+      "worst_scenarios": {
+        "JD": {
+          "metric": "JD",
+          "value": 10.918741543985456,
+          "G": [
+            1799.9991536827604,
+            1.745491720302882
+          ],
+          "e2_deg": 1.0,
+          "status": "BEARING",
+          "theta2_hat_deg": 32.39528957362196,
+          "diameter": 10.918741543985456,
+          "mec_radius": 5.459370771992837,
+          "area": 17.106167741542322,
+          "mec_center": [
+            1794.7965810746077,
+            0.09081124266896767
+          ],
+          "mec_support": [
+            [
+              1789.5940084664612,
+              -1.563869234961354
+            ],
+            [
+              1799.9991536827545,
+              1.7454917202992895
+            ]
+          ],
+          "source_level": 20.0,
+          "sample_set": "Gext",
+          "sample_origin": "physical_boundary_target1800",
+          "near_limit_eta_m": null,
+          "tq3_move_from_s2_s": 15.928348347069647
+        },
+        "JR": {
+          "metric": "JR",
+          "value": 5.459370771992837,
+          "G": [
+            1799.9991536827604,
+            1.745491720302882
+          ],
+          "e2_deg": 1.0,
+          "status": "BEARING",
+          "theta2_hat_deg": 32.39528957362196,
+          "diameter": 10.918741543985456,
+          "mec_radius": 5.459370771992837,
+          "area": 17.106167741542322,
+          "mec_center": [
+            1794.7965810746077,
+            0.09081124266896767
+          ],
+          "mec_support": [
+            [
+              1789.5940084664612,
+              -1.563869234961354
+            ],
+            [
+              1799.9991536827545,
+              1.7454917202992895
+            ]
+          ],
+          "source_level": 20.0,
+          "sample_set": "Gext",
+          "sample_origin": "physical_boundary_target1800",
+          "near_limit_eta_m": null,
+          "tq3_move_from_s2_s": 15.928348347069647
+        },
+        "JA": {
+          "metric": "JA",
+          "value": 17.30785927835882,
+          "G": [
+            1799.9991536827604,
+            1.745491720302882
+          ],
+          "e2_deg": 0.7,
+          "status": "BEARING",
+          "theta2_hat_deg": 32.09528957362196,
+          "diameter": 10.263721696371482,
+          "mec_radius": 5.131860848185741,
+          "area": 17.30785927835882,
+          "mec_center": [
+            1795.144291409097,
+            0.08475670872671814
+          ],
+          "mec_support": [
+            [
+              1790.2885828181938,
+              -1.575993075368323
+            ],
+            [
+              1800.0,
+              1.7455064928217592
+            ]
+          ],
+          "source_level": 20.0,
+          "sample_set": "Gext",
+          "sample_origin": "physical_boundary_target1800",
+          "near_limit_eta_m": null,
+          "tq3_move_from_s2_s": 15.986508892413337
+        }
+      },
+      "HFIM": 0.25526296209240307,
+      "robust_guarantee": true,
+      "official20_provisional": true,
+      "operational17_provisional": true,
+      "source_count": 35,
+      "error_count": 41,
+      "scenario_count": 1435,
+      "error_step_deg": 0.05,
+      "evaluation_status": "CONVERGED"
+    },
+    "certificate": {
+      "status": "CERTIFIED_STRICT",
+      "strict_receive": true,
+      "certified": true,
+      "method": "triangle_cell_2_lipschitz",
+      "L_rec_m": -934.291117694028,
+      "U_rec_m": -842.7418874625141,
+      "interval_width_m": 91.54923023151389,
+      "eps_rec_cert_m": 0.001,
+      "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
+      "cells_examined": 2,
+      "counterexample": null,
+      "reason": "global_upper_bound_nonpositive",
+      "boundary_uncertainty_m": 55.57214117457835,
+      "upper_bound_m": -842.7418874625141,
+      "upper_bound_m_alias_status": "DEPRECATED_USE_U_REC_M"
+    },
+    "eps_rec_cert_m": 0.001,
+    "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
+    "strict_physical_threshold_m": 0.0,
+    "source_convergence": "PASS",
+    "error_convergence": "PASS",
+    "source_history": [
+      {
+        "source_level_m": 20.0,
+        "source_count": 18,
+        "error_step_deg": 0.05,
+        "error_count": 41,
+        "JD": 10.918741543985456,
+        "JR": 5.459370771992837,
+        "JA": 17.30785927835882,
+        "relchg_D": null,
+        "relchg_R": null,
+        "relchg_A": null,
+        "JD_monotone": true,
+        "JR_monotone": true,
+        "JA_monotone": true
+      },
+      {
+        "source_level_m": 10.0,
+        "source_count": 35,
+        "error_step_deg": 0.05,
+        "error_count": 41,
+        "JD": 10.918741543985456,
+        "JR": 5.459370771992837,
+        "JA": 17.30785927835882,
+        "relchg_D": 0.0,
+        "relchg_R": 0.0,
+        "relchg_A": 0.0,
+        "JD_monotone": true,
+        "JR_monotone": true,
+        "JA_monotone": true
+      }
+    ],
+    "error_history": [
+      {
+        "source_level_m": 20.0,
+        "source_count": 18,
+        "error_step_deg": 0.1,
+        "error_count": 21,
+        "scenario_count": 378,
+        "JD": 10.918741543985456,
+        "JR": 5.459370771992837,
+        "JA": 17.30785927835882,
+        "relchg_D": null,
+        "relchg_R": null,
+        "relchg_A": null,
+        "JD_monotone": true,
+        "JR_monotone": true,
+        "JA_monotone": true
+      },
+      {
+        "source_level_m": 20.0,
+        "source_count": 18,
+        "error_step_deg": 0.05,
+        "error_count": 41,
+        "scenario_count": 738,
+        "JD": 10.918741543985456,
+        "JR": 5.459370771992837,
+        "JA": 17.30785927835882,
+        "relchg_D": 0.0,
+        "relchg_R": 0.0,
+        "relchg_A": 0.0,
+        "JD_monotone": true,
+        "JR_monotone": true,
+        "JA_monotone": true
+      },
+      {
+        "source_level_m": 10.0,
+        "source_count": 35,
+        "error_step_deg": 0.1,
+        "error_count": 21,
+        "scenario_count": 735,
+        "JD": 10.918741543985456,
+        "JR": 5.459370771992837,
+        "JA": 17.30785927835882,
+        "relchg_D": null,
+        "relchg_R": null,
+        "relchg_A": null,
+        "JD_monotone": true,
+        "JR_monotone": true,
+        "JA_monotone": true
+      },
+      {
+        "source_level_m": 10.0,
+        "source_count": 35,
+        "error_step_deg": 0.05,
+        "error_count": 41,
+        "scenario_count": 1435,
+        "JD": 10.918741543985456,
+        "JR": 5.459370771992837,
+        "JA": 17.30785927835882,
+        "relchg_D": 0.0,
+        "relchg_R": 0.0,
+        "relchg_A": 0.0,
+        "JD_monotone": true,
+        "JR_monotone": true,
+        "JA_monotone": true
+      }
+    ],
+    "gverify": {
+      "status": "PASS",
+      "sample_set": "Gverify",
+      "source_step_m": 5.0,
+      "source_count": 44,
+      "error_step_deg": 0.05,
+      "error_count": 41,
+      "JD_verify": 10.90012131635442,
+      "JR_verify": 5.45006065817721,
+      "JA_verify": 17.30785864072618,
+      "JD_final": 10.918741543985456,
+      "JR_final": 5.459370771992837,
+      "JA_final": 17.30785927835882,
+      "estimated_error_D": 0.00036,
+      "estimated_error_R": 0.00036,
+      "JD_check": true,
+      "JR_check": true,
+      "max_receive_violation_m": -915.5167802851287,
+      "strict_receive_check": true,
+      "independent_coordinate_overlap": 0,
+      "validated_JD": 10.918741543985456,
+      "validated_JR": 5.459370771992837,
+      "validated_JA": 17.30785927835882,
+      "verify_exceeded_optimizer": {
+        "JD": false,
+        "JR": false,
+        "JA": false
+      }
+    },
+    "optimizer_worst": {
+      "JD": {
+        "metric": "JD",
+        "value": 10.918741543985456,
+        "G": [
+          1799.9991536827604,
+          1.745491720302882
+        ],
+        "e2_deg": 1.0,
+        "status": "BEARING",
+        "theta2_hat_deg": 32.39528957362196,
+        "diameter": 10.918741543985456,
+        "mec_radius": 5.459370771992837,
+        "area": 17.106167741542322,
+        "mec_center": [
+          1794.7965810746077,
+          0.09081124266896767
+        ],
+        "mec_support": [
+          [
+            1789.5940084664612,
+            -1.563869234961354
+          ],
+          [
+            1799.9991536827545,
+            1.7454917202992895
+          ]
+        ],
+        "source_level": 20.0,
+        "sample_set": "Gext",
+        "sample_origin": "physical_boundary_target1800",
+        "near_limit_eta_m": null,
+        "tq3_move_from_s2_s": 15.928348347069647
+      },
+      "JR": {
+        "metric": "JR",
+        "value": 5.459370771992837,
+        "G": [
+          1799.9991536827604,
+          1.745491720302882
+        ],
+        "e2_deg": 1.0,
+        "status": "BEARING",
+        "theta2_hat_deg": 32.39528957362196,
+        "diameter": 10.918741543985456,
+        "mec_radius": 5.459370771992837,
+        "area": 17.106167741542322,
+        "mec_center": [
+          1794.7965810746077,
+          0.09081124266896767
+        ],
+        "mec_support": [
+          [
+            1789.5940084664612,
+            -1.563869234961354
+          ],
+          [
+            1799.9991536827545,
+            1.7454917202992895
+          ]
+        ],
+        "source_level": 20.0,
+        "sample_set": "Gext",
+        "sample_origin": "physical_boundary_target1800",
+        "near_limit_eta_m": null,
+        "tq3_move_from_s2_s": 15.928348347069647
+      },
+      "JA": {
+        "metric": "JA",
+        "value": 17.30785927835882,
+        "G": [
+          1799.9991536827604,
+          1.745491720302882
+        ],
+        "e2_deg": 0.7,
+        "status": "BEARING",
+        "theta2_hat_deg": 32.09528957362196,
+        "diameter": 10.263721696371482,
+        "mec_radius": 5.131860848185741,
+        "area": 17.30785927835882,
+        "mec_center": [
+          1795.144291409097,
+          0.08475670872671814
+        ],
+        "mec_support": [
+          [
+            1790.2885828181938,
+            -1.575993075368323
+          ],
+          [
+            1800.0,
+            1.7455064928217592
+          ]
+        ],
+        "source_level": 20.0,
+        "sample_set": "Gext",
+        "sample_origin": "physical_boundary_target1800",
+        "near_limit_eta_m": null,
+        "tq3_move_from_s2_s": 15.986508892413337
+      }
+    },
+    "verify_worst": {
+      "JD": {
+        "metric": "JD",
+        "value": 10.90012131635442,
+        "G": [
+          1792.857142857143,
+          -1.6208274576202037
+        ],
+        "e2_deg": 0.4,
+        "status": "BEARING",
+        "theta2_hat_deg": 32.42489528837315,
+        "diameter": 10.90012131635442,
+        "mec_radius": 5.45006065817721,
+        "area": 17.06440679697107,
+        "mec_center": [
+          1794.7192719785999,
+          0.09064820012794783
+        ],
+        "mec_support": [
+          [
+            1789.5260400713723,
+            -1.5626828422120136
+          ],
+          [
+            1799.9125038858274,
+            1.7439792424679093
+          ]
+        ],
+        "source_level": 5.0,
+        "sample_set": "Gverify",
+        "sample_origin": "verify_boundary",
+        "near_limit_eta_m": null,
+        "tq3_move_from_s2_s": 15.915267939233749
+      },
+      "JR": {
+        "metric": "JR",
+        "value": 5.45006065817721,
+        "G": [
+          1792.857142857143,
+          -1.6208274576202037
+        ],
+        "e2_deg": 0.4,
+        "status": "BEARING",
+        "theta2_hat_deg": 32.42489528837315,
+        "diameter": 10.90012131635442,
+        "mec_radius": 5.45006065817721,
+        "area": 17.06440679697107,
+        "mec_center": [
+          1794.7192719785999,
+          0.09064820012794783
+        ],
+        "mec_support": [
+          [
+            1789.5260400713723,
+            -1.5626828422120136
+          ],
+          [
+            1799.9125038858274,
+            1.7439792424679093
+          ]
+        ],
+        "source_level": 5.0,
+        "sample_set": "Gverify",
+        "sample_origin": "verify_boundary",
+        "near_limit_eta_m": null,
+        "tq3_move_from_s2_s": 15.915267939233749
+      },
+      "JA": {
+        "metric": "JA",
+        "value": 17.30785864072618,
+        "G": [
+          1792.857142857143,
+          -1.6208274576202037
+        ],
+        "e2_deg": 0.1,
+        "status": "BEARING",
+        "theta2_hat_deg": 32.12489528837315,
+        "diameter": 10.328665803130491,
+        "mec_radius": 5.164332901565354,
+        "area": 17.30785864072618,
+        "mec_center": [
+          1795.1097806861235,
+          0.08535909563693711
+        ],
+        "mec_support": [
+          [
+            1790.2195613722472,
+            -1.574788301547885
+          ],
+          [
+            1800.0,
+            1.7455064928217592
+          ]
+        ],
+        "source_level": 5.0,
+        "sample_set": "Gverify",
+        "sample_origin": "verify_boundary",
+        "near_limit_eta_m": null,
+        "tq3_move_from_s2_s": 15.98073246597923
+      }
+    },
+    "validated_worst": {
+      "JD": {
+        "metric": "JD",
+        "value": 10.918741543985456,
+        "G": [
+          1799.9991536827604,
+          1.745491720302882
+        ],
+        "e2_deg": 1.0,
+        "status": "BEARING",
+        "theta2_hat_deg": 32.39528957362196,
+        "diameter": 10.918741543985456,
+        "mec_radius": 5.459370771992837,
+        "area": 17.106167741542322,
+        "mec_center": [
+          1794.7965810746077,
+          0.09081124266896767
+        ],
+        "mec_support": [
+          [
+            1789.5940084664612,
+            -1.563869234961354
+          ],
+          [
+            1799.9991536827545,
+            1.7454917202992895
+          ]
+        ],
+        "source_level": 20.0,
+        "sample_set": "Gext",
+        "sample_origin": "physical_boundary_target1800",
+        "near_limit_eta_m": null,
+        "tq3_move_from_s2_s": 15.928348347069647
+      },
+      "JR": {
+        "metric": "JR",
+        "value": 5.459370771992837,
+        "G": [
+          1799.9991536827604,
+          1.745491720302882
+        ],
+        "e2_deg": 1.0,
+        "status": "BEARING",
+        "theta2_hat_deg": 32.39528957362196,
+        "diameter": 10.918741543985456,
+        "mec_radius": 5.459370771992837,
+        "area": 17.106167741542322,
+        "mec_center": [
+          1794.7965810746077,
+          0.09081124266896767
+        ],
+        "mec_support": [
+          [
+            1789.5940084664612,
+            -1.563869234961354
+          ],
+          [
+            1799.9991536827545,
+            1.7454917202992895
+          ]
+        ],
+        "source_level": 20.0,
+        "sample_set": "Gext",
+        "sample_origin": "physical_boundary_target1800",
+        "near_limit_eta_m": null,
+        "tq3_move_from_s2_s": 15.928348347069647
+      },
+      "JA": {
+        "metric": "JA",
+        "value": 17.30785927835882,
+        "G": [
+          1799.9991536827604,
+          1.745491720302882
+        ],
+        "e2_deg": 0.7,
+        "status": "BEARING",
+        "theta2_hat_deg": 32.09528957362196,
+        "diameter": 10.263721696371482,
+        "mec_radius": 5.131860848185741,
+        "area": 17.30785927835882,
+        "mec_center": [
+          1795.144291409097,
+          0.08475670872671814
+        ],
+        "mec_support": [
+          [
+            1790.2885828181938,
+            -1.575993075368323
+          ],
+          [
+            1800.0,
+            1.7455064928217592
+          ]
+        ],
+        "source_level": 20.0,
+        "sample_set": "Gext",
+        "sample_origin": "physical_boundary_target1800",
+        "near_limit_eta_m": null,
+        "tq3_move_from_s2_s": 15.986508892413337
+      }
+    },
+    "replay": {
+      "JD": {
+        "metric": "JD",
+        "status": "PASS",
+        "checks": {
+          "value": true,
+          "status": true,
+          "G": true,
+          "e2": true,
+          "mec_center": true,
+          "mec_support": true
+        },
+        "replayed_value": 10.918741543985456,
+        "stored_value": 10.918741543985456,
+        "tolerance": 0.00018
+      },
+      "JR": {
+        "metric": "JR",
+        "status": "PASS",
+        "checks": {
+          "value": true,
+          "status": true,
+          "G": true,
+          "e2": true,
+          "mec_center": true,
+          "mec_support": true
+        },
+        "replayed_value": 5.459370771992837,
+        "stored_value": 5.459370771992837,
+        "tolerance": 0.00018
+      },
+      "JA": {
+        "metric": "JA",
+        "status": "PASS",
+        "checks": {
+          "value": true,
+          "status": true,
+          "G": true,
+          "e2": true,
+          "mec_center": true,
+          "mec_support": true
+        },
+        "replayed_value": 17.30785927835882,
+        "stored_value": 17.30785927835882,
+        "tolerance": 0.000324
+      }
+    },
+    "warnings": []
+  },
+  "gate": "PASS",
+  "artifact_status": "VALIDATION / NOT_FINAL_Q2_RESULT"
+}

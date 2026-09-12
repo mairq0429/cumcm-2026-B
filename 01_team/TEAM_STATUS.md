@@ -16,6 +16,7 @@
 - Q2 M6A.3：1440 baseline 已启动并逐级保存证据；50 m、20 m 完成，5 m 在 300 s 单级 watchdog 内未完成。未形成最终 5 m selected，未执行独立 selected revalidation，2880 未运行；T12=`UNRESOLVED`，M6B 禁止进入。
 - Q2 M6A.4 sparse generation PASS：20 m legacy/sparse 均为3883 cells；5 m 由991 region parents生成17292 cells，missing/extra=0，约0.512 s。5 m region-only strict classification 仍超300 s，下一瓶颈为批量 anchor propagation/certificate classification。
 - Q2 M6A.5 incremental anchor propagation PASS：legacy oracle 与 incremental 三批次的点状态、whole-cell状态及anchor序列零差异；正式5 m region-only复用246个既有anchors、新增881个full anchors，完成17292 cells分类，整套50→20→5 region-only约56.5 s（原>300 s），且M4=0。5 m结果为strict 9432、violation 150、uncertain-boundary 0、unresolved 6；本轮不重跑完整1440，T12仍UNRESOLVED。
+- Q2 M6A.6 unresolved-competitive gate 已实现并通过回归。完整1440代表性 baseline 已于84.03 s完成：6个最终UNRESOLVED cells全部为noncompetitive，gate=`PASS_NONCOMPETITIVE_UNRESOLVED`；selected独立复核、source/error、Gverify、JD/JR/JA replay及monotone均PASS。但20→5的T2/JD/JR relchg分别为0.00724/0.13077/0.13077，故`CANDIDATE_GRID_SENSITIVE`，1440状态与T12保持UNRESOLVED，禁止进入2880。
 
 ## 待验证
 
