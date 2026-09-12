@@ -2,9 +2,9 @@
   "type": "FeatureCollection",
   "name": "Fstrict DEVELOPMENT point-certified approximation",
   "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
-  "eps_rec_m": 0.001,
-  "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
-  "eps_rec_status": "EPS_REC_PROVISIONAL",
+  "eps_rec_cert_m": 0.001,
+  "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
+  "eps_rec_cert_status": "MODEL_FROZEN_CERTIFICATION_PRECISION",
   "features": [
     {
       "type": "Feature",
@@ -50,8 +50,8 @@
         ],
         "candidate_status": "OMEGA_BOUNDARY_UNRESOLVED",
         "certificate_status": null,
-        "eps_rec_m": 0.001,
-        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "eps_rec_cert_m": 0.001,
+        "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "M4_status": null,
         "official20": null,
         "operational17": null,
@@ -74,7 +74,7 @@
         "omega_boundary_flag": true,
         "artifact_status": "DEVELOPMENT",
         "final_result": false,
-        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "eps_rec_cert_status": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "representation": "uncertainty_cell"
       }
     },
@@ -122,8 +122,8 @@
         ],
         "candidate_status": "OMEGA_BOUNDARY_UNRESOLVED",
         "certificate_status": null,
-        "eps_rec_m": 0.001,
-        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "eps_rec_cert_m": 0.001,
+        "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "M4_status": null,
         "official20": null,
         "operational17": null,
@@ -146,7 +146,7 @@
         "omega_boundary_flag": true,
         "artifact_status": "DEVELOPMENT",
         "final_result": false,
-        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "eps_rec_cert_status": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "representation": "uncertainty_cell"
       }
     },
@@ -194,8 +194,8 @@
         ],
         "candidate_status": "OMEGA_BOUNDARY_UNRESOLVED",
         "certificate_status": null,
-        "eps_rec_m": 0.001,
-        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "eps_rec_cert_m": 0.001,
+        "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "M4_status": null,
         "official20": null,
         "operational17": null,
@@ -218,7 +218,7 @@
         "omega_boundary_flag": true,
         "artifact_status": "DEVELOPMENT",
         "final_result": false,
-        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "eps_rec_cert_status": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "representation": "uncertainty_cell"
       }
     },
@@ -266,8 +266,8 @@
         ],
         "candidate_status": "OMEGA_BOUNDARY_UNRESOLVED",
         "certificate_status": null,
-        "eps_rec_m": 0.001,
-        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "eps_rec_cert_m": 0.001,
+        "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "M4_status": null,
         "official20": null,
         "operational17": null,
@@ -290,7 +290,7 @@
         "omega_boundary_flag": true,
         "artifact_status": "DEVELOPMENT",
         "final_result": false,
-        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "eps_rec_cert_status": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "representation": "uncertainty_cell"
       }
     },
@@ -318,8 +318,8 @@
         ],
         "candidate_status": "STRICT_INTERIOR",
         "certificate_status": "CERTIFIED_STRICT",
-        "eps_rec_m": 0.001,
-        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "eps_rec_cert_m": 0.001,
+        "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "M4_status": "PASS",
         "official20": true,
         "operational17": true,
@@ -342,7 +342,7 @@
         "omega_boundary_flag": false,
         "artifact_status": "DEVELOPMENT",
         "final_result": false,
-        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "eps_rec_cert_status": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "representation": "point_certified"
       }
     },
@@ -390,8 +390,8 @@
         ],
         "candidate_status": "OMEGA_BOUNDARY_UNRESOLVED",
         "certificate_status": null,
-        "eps_rec_m": 0.001,
-        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "eps_rec_cert_m": 0.001,
+        "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "M4_status": null,
         "official20": null,
         "operational17": null,
@@ -414,7 +414,7 @@
         "omega_boundary_flag": true,
         "artifact_status": "DEVELOPMENT",
         "final_result": false,
-        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "eps_rec_cert_status": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "representation": "uncertainty_cell"
       }
     },
@@ -462,8 +462,8 @@
         ],
         "candidate_status": "OMEGA_BOUNDARY_UNRESOLVED",
         "certificate_status": null,
-        "eps_rec_m": 0.001,
-        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "eps_rec_cert_m": 0.001,
+        "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "M4_status": null,
         "official20": null,
         "operational17": null,
@@ -486,7 +486,7 @@
         "omega_boundary_flag": true,
         "artifact_status": "DEVELOPMENT",
         "final_result": false,
-        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "eps_rec_cert_status": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "representation": "uncertainty_cell"
       }
     },
@@ -514,8 +514,8 @@
         ],
         "candidate_status": "STRICT_INTERIOR",
         "certificate_status": "CERTIFIED_STRICT",
-        "eps_rec_m": 0.001,
-        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "eps_rec_cert_m": 0.001,
+        "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "M4_status": "PASS",
         "official20": true,
         "operational17": true,
@@ -538,7 +538,7 @@
         "omega_boundary_flag": false,
         "artifact_status": "DEVELOPMENT",
         "final_result": false,
-        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "eps_rec_cert_status": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "representation": "point_certified"
       }
     },
@@ -586,8 +586,8 @@
         ],
         "candidate_status": "OMEGA_BOUNDARY_UNRESOLVED",
         "certificate_status": null,
-        "eps_rec_m": 0.001,
-        "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+        "eps_rec_cert_m": 0.001,
+        "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "M4_status": null,
         "official20": null,
         "operational17": null,
@@ -610,7 +610,7 @@
         "omega_boundary_flag": true,
         "artifact_status": "DEVELOPMENT",
         "final_result": false,
-        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "eps_rec_cert_status": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "representation": "uncertainty_cell"
       }
     }

@@ -11,11 +11,11 @@
 
 ## 进行中
 
-- Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M5B 已实现，包括 M5A.1 双细化链与 M5B geometric risk-area engine；M6 待实现。
+- Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M5B 已实现，包括 M5A.1 双细化链与 M5B geometric risk-area engine；strict certificate 已按零物理阈值与四态区间证书完成 MODEL_ALIGNED；M6 待实现。
 
 ## 待验证
 
-- Q2 T12、1440→2880、candidate 整体收敛、Lmin 敏感性、风险面积与正式结果文件；T13--T17 中 T13/T14/T15/T16/T17 已通过。
+- Q2 T12、1440→2880、candidate 整体收敛、Lmin 敏感性、`eps_rec_cert_m=1e-4/1e-3/1e-2` 正式全域敏感性与正式结果文件；T13--T17 中 T13/T14/T15/T16/T17 已通过。
 
 ## 阻塞问题
 

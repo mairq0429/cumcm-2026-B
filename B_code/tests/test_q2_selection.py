@@ -34,14 +34,18 @@ from q2_selection import (  # noqa: E402
     evaluate_risk_candidate,
     integrate_qarea,
     classify_risk_threshold,
+    classify_receive_certificate_bounds,
     make_P2,
     merge_verified_worst,
     physical_filter,
     receive_floor,
     receive_violation,
+    run_eps_rec_cert_sensitivity,
+    sample_receive_screen,
     search_strict_candidates,
     select_from_evaluated,
     write_m5b_outputs,
+    strict_gverify_receive_status,
     wrap_pi,
 )
 
@@ -65,7 +69,7 @@ class TestQ2V21M1ToM3(unittest.TestCase):
         self.assertEqual(shifted["status"], "CERTIFIED_STRICT")
         self.assertIs(shifted["strict_receive"], True)
         self.assertEqual(shifted["method"], "triangle_cell_2_lipschitz")
-        self.assertLessEqual(shifted["upper_bound_m"], shifted["eps_rec_m"])
+        self.assertLessEqual(shifted["U_rec_m"], 0.0)
 
     def test_T02_true_source_is_in_P1_out(self):
         self.assertTrue(point_in_convex_region(
@@ -163,6 +167,60 @@ class TestStrictCertificateImplementationSemantics(unittest.TestCase):
         self.assertIsNotNone(certificate["counterexample"])
         self.assertTrue(physical_filter(certificate["counterexample"], self.S1))
 
+    def test_zero_threshold_four_state_bounds(self):
+        self.assertEqual(
+            classify_receive_certificate_bounds(5e-4, 8e-4, 1e-3),
+            "CERTIFIED_VIOLATION",
+        )
+        self.assertEqual(
+            classify_receive_certificate_bounds(-2e-4, -1e-5, 1e-3),
+            "CERTIFIED_STRICT",
+        )
+        self.assertEqual(
+            classify_receive_certificate_bounds(-4e-4, 4e-4, 1e-3),
+            "UNCERTAIN_BOUNDARY",
+        )
+        self.assertEqual(
+            classify_receive_certificate_bounds(-1.0, 1.0, 1e-3),
+            "CONTINUE",
+        )
+
+    def test_certificate_contract_and_analytic_zero_upper(self):
+        certificate = certified_strict(self.S1, self.P1, self.S1, Q2Config())
+        required = {
+            "status", "strict_receive", "certified", "L_rec_m", "U_rec_m",
+            "interval_width_m", "eps_rec_cert_m", "eps_rec_cert_source",
+            "cells_examined", "counterexample", "reason",
+        }
+        self.assertTrue(required <= set(certificate))
+        self.assertEqual(certificate["U_rec_m"], 0.0)
+        self.assertEqual(certificate["eps_rec_cert_m"], 1e-3)
+        self.assertEqual(
+            certificate["eps_rec_cert_source"],
+            "MODEL_FROZEN_CERTIFICATION_PRECISION",
+        )
+
+    def test_M5A_submillimetre_sample_screen_and_whole_cell(self):
+        point = sample_receive_screen((-1000.0005, 0.0), (500.0, 0.0), self.S1)
+        self.assertGreater(point["margin_m"], 0.0)
+        self.assertLess(point["margin_m"], 1e-3)
+        self.assertTrue(point["point_violation"])
+        self.assertTrue(sample_receive_screen(
+            (-1000.4, 0.0), (500.0, 0.0), self.S1, 0.3
+        )["whole_cell_violation"])
+        self.assertFalse(sample_receive_screen(
+            (-1000.2, 0.0), (500.0, 0.0), self.S1, 0.3
+        )["whole_cell_violation"])
+
+    def test_Gverify_positive_micrometre_fails_strict(self):
+        self.assertEqual(
+            strict_gverify_receive_status("CERTIFIED_STRICT", 1e-6),
+            "GVERIFY_FAIL_RECEIVE",
+        )
+        self.assertEqual(
+            strict_gverify_receive_status("CERTIFIED_STRICT", 0.0), "PASS"
+        )
+
 
 class TestQ2M4NestedWorstCase(unittest.TestCase):
     @classmethod
@@ -227,7 +285,7 @@ class TestQ2M4NestedWorstCase(unittest.TestCase):
         self.assertTrue(report["JD_check"])
         self.assertTrue(report["JR_check"])
         self.assertLessEqual(
-            report["max_receive_violation_m"], self.result["certificate"]["eps_rec_m"]
+            report["max_receive_violation_m"], 0.0
         )
 
     def test_T14_worst_scenario_replay(self):
@@ -278,7 +336,12 @@ class TestQ2M4NestedWorstCase(unittest.TestCase):
         self.assertLessEqual(final_source["relchg_D"], 1.0e-3)
         self.assertLessEqual(final_source["relchg_R"], 1.0e-3)
         self.assertNotIn("NON_MONOTONE_REFINEMENT", self.result["warnings"])
-        self.assertTrue(self.result["strict_certificate_threshold_provisional"])
+        self.assertEqual(self.result["strict_physical_threshold_m"], 0.0)
+        self.assertEqual(self.result["eps_rec_cert_m"], 1e-3)
+        self.assertEqual(
+            self.result["eps_rec_cert_source"],
+            "MODEL_FROZEN_CERTIFICATION_PRECISION",
+        )
 
 
 class TestQ2M41StressCases(unittest.TestCase):
@@ -339,10 +402,10 @@ class TestQ2M5AStrictCandidateSearch(unittest.TestCase):
     @staticmethod
     def _certificate(point, _p1, _s1, config):
         x = point[0]
-        eps = 0.001 if config.eps_rec_m is None else config.eps_rec_m
+        eps = config.eps_rec_cert_m
         common = {
-            "eps_rec_m": eps,
-            "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+            "eps_rec_cert_m": eps,
+            "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
             "counterexample": None,
         }
         if -50.0 <= x <= 50.0:
@@ -442,15 +505,15 @@ class TestQ2M5AStrictCandidateSearch(unittest.TestCase):
         p1 = build_P1_bound(self.S1, 0.0, config)
 
         def separated_certificate(point, _p1, _s1, cfg):
-            eps = 0.001 if cfg.eps_rec_m is None else cfg.eps_rec_m
+            eps = cfg.eps_rec_cert_m
             strict = point[0] < 200.0 or point[0] >= 400.0
             return {
                 "status": "CERTIFIED_STRICT" if strict else "CERTIFIED_VIOLATION",
                 "certified": True,
                 "strict_receive": strict,
                 "counterexample": None,
-                "eps_rec_m": eps,
-                "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+                "eps_rec_cert_m": eps,
+                "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
             }
 
         def separated_m4(point, s1, p1_arg, cfg):
@@ -597,6 +660,21 @@ class TestQ2M5AStrictCandidateSearch(unittest.TestCase):
         self.assertEqual(set(evaluated.worst_scenarios), {"JD", "JR", "JA"})
         for worst in evaluated.worst_scenarios.values():
             self.assertTrue(physical_filter(worst.G, self.S1))
+
+    def test_eps_rec_cert_sensitivity_keeps_zero_physical_threshold(self):
+        report = run_eps_rec_cert_sensitivity(
+            self.S1, 0.0, config=self.config, P1_bound=self.P1,
+            sample_scenarios=[], certificate_fn=self._certificate, m4_fn=self._m4,
+        )
+        self.assertEqual(report["strict_physical_threshold_m"], 0.0)
+        self.assertEqual(
+            [item["eps_rec_cert_m"] for item in report["records"]],
+            [1e-4, 1e-3, 1e-2],
+        )
+        self.assertTrue(all(
+            item["strict_physical_threshold_m"] == 0.0 for item in report["records"]
+        ))
+        self.assertEqual(report["status"], "PASS")
 
 
 class TestQ2M5BGeometricRiskArea(unittest.TestCase):

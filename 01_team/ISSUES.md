@@ -13,7 +13,7 @@
 | 问题编号 | 标题 | 描述 | 负责人 | 状态 | 截止时间 | 关联版本 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 |
-| Q2-I-001 | M6 尚未完成 | M5B Garea/Qarea、风险阈值 shortlist 与 received-subset worst 已完成；正式全域结果、1440→2880、Lmin 敏感性和整体收敛仍待实现 | C | OPEN | 后续轮次 | Q2-robust-selection-v2.1 | eps_rec 与 area_q_tol 等仍为 implementation parameters；不得在完成前声明 Q2 TESTED/VERIFIED |
+| Q2-I-001 | M6 尚未完成 | M5B Garea/Qarea、风险阈值 shortlist 与 received-subset worst 已完成；正式全域结果、1440→2880、Lmin 敏感性和整体收敛仍待实现 | C | OPEN | 后续轮次 | Q2-robust-selection-v2.1 | eps_rec_cert 已冻结为数值认证精度且物理阈值为 0；仍需正式全域 1e-4/1e-3/1e-2 敏感性。area_q_tol 仍为 implementation parameter；不得在完成前声明 Q2 TESTED/VERIFIED |
 
 ## P2
 

@@ -7,7 +7,7 @@ tolerances are imported from the verified Q1 implementation.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 import csv
 import json
 import math
@@ -39,9 +39,9 @@ SPEED_MPS = 5.0
 MEASURE_TIME_S = 5.0
 OFFICIAL_CLEAR_RADIUS_M = 20.0
 OPERATIONAL_CLEAR_RADIUS_M = 17.0
-# Provisional numerical target used only while the model team has not frozen
-# eps_rec.  It is deliberately independent of every Q1 geometry tolerance.
-DEVELOPMENT_EPS_REC_M = 1.0e-3
+# Team-frozen numerical precision for resolving a branch-and-bound interval.
+# It never relaxes the physical receive threshold V_rec <= 0.
+EPS_REC_CERT_M = 1.0e-3
 
 
 @dataclass(frozen=True)
@@ -49,7 +49,8 @@ class Q2Config:
     circle_sides: int = 1440
     omega_move: Optional[Sequence[Point]] = None
     lmin_m: float = 50.0
-    eps_rec_m: Optional[float] = None
+    eps_rec_cert_m: float = EPS_REC_CERT_M
+    eps_rec_m: Optional[float] = None  # Deprecated alias; never a physical tolerance.
     error_step_deg: float = 0.1
     source_step_m: float = 20.0
     candidate_steps_m: tuple[float, ...] = (50.0, 20.0, 5.0)
@@ -65,8 +66,14 @@ class Q2Config:
     def __post_init__(self) -> None:
         if self.circle_sides < 12:
             raise ValueError("circle_sides must be at least 12")
-        if self.lmin_m < 0 or (self.eps_rec_m is not None and self.eps_rec_m < 0):
-            raise ValueError("lmin_m and configured eps_rec_m must be nonnegative")
+        if self.lmin_m < 0 or self.eps_rec_cert_m <= 0:
+            raise ValueError("lmin_m must be nonnegative and eps_rec_cert_m positive")
+        if self.eps_rec_m is not None:
+            if self.eps_rec_m <= 0:
+                raise ValueError("deprecated eps_rec_m alias must be positive")
+            if self.eps_rec_cert_m != EPS_REC_CERT_M and self.eps_rec_cert_m != self.eps_rec_m:
+                raise ValueError("eps_rec_m alias conflicts with eps_rec_cert_m")
+            object.__setattr__(self, "eps_rec_cert_m", self.eps_rec_m)
         if self.error_step_deg <= 0 or self.source_step_m <= 0:
             raise ValueError("sampling steps must be positive")
         if self.certificate_max_depth < 0 or self.certificate_max_cells < 0:
@@ -189,8 +196,8 @@ class CandidateCell:
             "bbox": list(self.bbox),
             "candidate_status": self.status,
             "certificate_status": None if self.certificate is None else self.certificate.get("status"),
-            "eps_rec_m": None if self.certificate is None else self.certificate.get("eps_rec_m"),
-            "eps_rec_source": None if self.certificate is None else self.certificate.get("eps_rec_source"),
+            "eps_rec_cert_m": None if self.certificate is None else self.certificate.get("eps_rec_cert_m"),
+            "eps_rec_cert_source": None if self.certificate is None else self.certificate.get("eps_rec_cert_source"),
             "M4_status": None if self.m4_result is None else self.m4_result.get("status"),
             "official20": None if candidate is None else candidate.official20,
             "operational17": None if candidate is None else candidate.operational17,
@@ -424,10 +431,44 @@ def receive_violation(S2: Sequence[float], G: Sequence[float], S1: Sequence[floa
     return _distance(_point(G, "G"), _point(S2, "S2")) - receive_floor(G, S1)
 
 
-def _certificate_epsilon(config: Q2Config) -> tuple[float, str]:
-    if config.eps_rec_m is None:
-        return DEVELOPMENT_EPS_REC_M, "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED"
-    return config.eps_rec_m, "CONFIGURED_PARAMETER / NOT_MODEL_VERIFIED"
+def _certificate_precision(config: Q2Config) -> tuple[float, str]:
+    source = "MODEL_FROZEN_CERTIFICATION_PRECISION"
+    if config.eps_rec_m is not None:
+        source = "DEPRECATED_EPS_REC_M_ALIAS / MODEL_FROZEN_CERTIFICATION_PRECISION"
+    return config.eps_rec_cert_m, source
+
+
+def classify_receive_certificate_bounds(lower: float, upper: float, precision: float) -> str:
+    """Apply the frozen zero-threshold certificate decision order."""
+
+    if upper <= 0.0:
+        return "CERTIFIED_STRICT"
+    if lower > 0.0:
+        return "CERTIFIED_VIOLATION"
+    if math.isfinite(lower) and lower <= 0.0 < upper and upper - lower <= precision:
+        return "UNCERTAIN_BOUNDARY"
+    return "CONTINUE"
+
+
+def sample_receive_screen(
+    S2: Sequence[float], G: Sequence[float], S1: Sequence[float],
+    candidate_cell_radius_m: float = 0.0,
+) -> dict:
+    """Safely classify a fixed physical sample at a candidate point/cell."""
+
+    margin = receive_violation(S2, G, S1)
+    return {
+        "margin_m": margin,
+        "point_violation": margin > 0.0,
+        "whole_cell_violation": margin - float(candidate_cell_radius_m) > 0.0,
+        "physical_threshold_m": 0.0,
+    }
+
+
+def strict_gverify_receive_status(certificate_status: str, max_receive_violation_m: float) -> str:
+    if certificate_status == "CERTIFIED_STRICT" and max_receive_violation_m > 0.0:
+        return "GVERIFY_FAIL_RECEIVE"
+    return "PASS"
 
 
 def _point_segment_distance(p: Point, a: Point, b: Point) -> float:
@@ -474,99 +515,121 @@ def certified_strict(
     S1: Sequence[float],
     config: Optional[Q2Config] = None,
 ) -> dict:
-    """Certify strict reception over the continuous physical set.
-
-    Active triangles use the mandated 2-Lipschitz upper bound
-    ``f(Gc)+2*h``.  Physical-invalid cells are skipped only when the entire
-    clipped cell is provably invalid; partially intersecting cells subdivide.
-    """
+    """Bound the physical maximum by ``L_rec <= V_rec <= U_rec``."""
 
     cfg = config or Q2Config()
-    eps_rec, eps_rec_source = _certificate_epsilon(cfg)
+    precision, precision_source = _certificate_precision(cfg)
     s1, s2 = _point(S1, "S1"), _point(S2, "S2")
     polygon = list(P1_bound["P1_out"] if isinstance(P1_bound, Mapping) else P1_bound)
-    if _distance(s1, s2) <= cfg.tolerances.eps_geo:
+
+    def result(status, lower, upper, examined, counterexample=None, reason=None, h=None):
+        width = upper - lower if math.isfinite(upper) and math.isfinite(lower) else math.inf
         return {
-            "status": "CERTIFIED_STRICT",
-            "strict_receive": True,
-            "certified": True,
-            "method": "analytic_identity_plus_physical_domain",
-            "upper_bound_m": 0.0,
-            "eps_rec_m": eps_rec,
-            "eps_rec_source": eps_rec_source,
-            "cells_examined": 0,
-            "boundary_uncertainty_m": 0.0,
-            "counterexample": None,
+            "status": status,
+            "strict_receive": True if status == "CERTIFIED_STRICT" else (
+                False if status == "CERTIFIED_VIOLATION" else None
+            ),
+            "certified": status in {"CERTIFIED_STRICT", "CERTIFIED_VIOLATION"},
+            "method": "triangle_cell_2_lipschitz",
+            "L_rec_m": lower,
+            "U_rec_m": upper,
+            "interval_width_m": width,
+            "eps_rec_cert_m": precision,
+            "eps_rec_cert_source": precision_source,
+            "cells_examined": examined,
+            "counterexample": counterexample,
+            "reason": reason,
+            "boundary_uncertainty_m": h,
+            "upper_bound_m": upper,
+            "upper_bound_m_alias_status": "DEPRECATED_USE_U_REC_M",
         }
+
+    if s1 == s2:
+        answer = result(
+            "CERTIFIED_STRICT", -math.inf, 0.0, 0,
+            reason="analytic_S2_equals_S1", h=0.0,
+        )
+        answer["method"] = "analytic_identity_plus_physical_domain"
+        return answer
+
     xs, ys = [p[0] for p in polygon], [p[1] for p in polygon]
     lo_x, hi_x, lo_y, hi_y = min(xs), max(xs), min(ys), max(ys)
-    queue: list[tuple[list[Point], int]] = [
+    initial = [
         ([(lo_x, lo_y), (hi_x, lo_y), (hi_x, hi_y)], 0),
         ([(lo_x, lo_y), (hi_x, hi_y), (lo_x, hi_y)], 0),
     ]
+    active: list[dict] = []
     examined = 0
-    certified_leaf_upper = -math.inf
-    certified_leaf_h = 0.0
-    while queue:
-        triangle, depth = queue.pop()
+    lower = -math.inf
+    lower_point = None
+
+    def add_cell(triangle: list[Point], depth: int) -> bool:
+        nonlocal examined, lower, lower_point
+        if examined >= cfg.certificate_max_cells:
+            return False
         examined += 1
-        if examined > cfg.certificate_max_cells:
-            return {
-                "status": "UNRESOLVED",
-                "strict_receive": None, "certified": False, "method": "triangle_cell_2_lipschitz",
-                "upper_bound_m": None, "eps_rec_m": eps_rec,
-                "eps_rec_source": eps_rec_source,
-                "cells_examined": examined, "boundary_uncertainty_m": None,
-                "counterexample": None, "reason": "certificate_cell_budget_exhausted",
-            }
         clipped = _clip_by_convex(triangle, polygon, cfg.tolerances)
         if not _physical_intersection_possible(clipped, s1):
-            continue
+            return True
         center = (
-            sum(p[0] for p in clipped) / len(clipped),
-            sum(p[1] for p in clipped) / len(clipped),
+            sum(point[0] for point in clipped) / len(clipped),
+            sum(point[1] for point in clipped) / len(clipped),
         )
-        h = max(_distance(center, p) for p in clipped)
+        h = max(_distance(center, point) for point in clipped)
         upper = receive_violation(s2, center, s1) + 2.0 * h
-        samples = list(clipped) + [center]
-        for point in samples:
-            if physical_filter(point, s1) and receive_violation(s2, point, s1) > eps_rec:
-                return {
-                    "status": "CERTIFIED_VIOLATION",
-                    "strict_receive": False, "certified": True, "method": "triangle_cell_2_lipschitz",
-                    "upper_bound_m": upper, "eps_rec_m": eps_rec,
-                    "eps_rec_source": eps_rec_source,
-                    "cells_examined": examined, "boundary_uncertainty_m": h,
-                    "counterexample": point, "reason": "physical_counterexample",
-                }
-        if upper <= eps_rec:
-            certified_leaf_upper = max(certified_leaf_upper, upper)
-            certified_leaf_h = max(certified_leaf_h, h)
-            continue
-        if depth >= cfg.certificate_max_depth:
-            return {
-                "status": "UNRESOLVED",
-                "strict_receive": None, "certified": False, "method": "triangle_cell_2_lipschitz",
-                "upper_bound_m": upper, "eps_rec_m": eps_rec,
-                "eps_rec_source": eps_rec_source,
-                "cells_examined": examined, "boundary_uncertainty_m": h,
-                "counterexample": None, "reason": "max_depth_with_active_physical_cell",
-            }
-        first, second = _triangle_children(triangle)
-        queue.append((first, depth + 1))
-        queue.append((second, depth + 1))
-    return {
-        "status": "CERTIFIED_STRICT",
-        "strict_receive": True,
-        "certified": True,
-        "method": "triangle_cell_2_lipschitz",
-        "upper_bound_m": certified_leaf_upper if math.isfinite(certified_leaf_upper) else None,
-        "eps_rec_m": eps_rec,
-        "eps_rec_source": eps_rec_source,
-        "cells_examined": examined,
-        "boundary_uncertainty_m": certified_leaf_h,
-        "counterexample": None,
-    }
+        for point in list(clipped) + [center]:
+            if physical_filter(point, s1):
+                value = receive_violation(s2, point, s1)
+                if value > lower:
+                    lower, lower_point = value, point
+        active.append({"triangle": triangle, "depth": depth, "upper": upper, "h": h})
+        return True
+
+    for triangle, depth in initial:
+        if not add_cell(triangle, depth):
+            return result(
+                "CERTIFIED_VIOLATION" if lower > 0.0 else "UNRESOLVED",
+                lower, math.inf, examined,
+                counterexample=lower_point if lower > 0.0 else None,
+                reason="physical_counterexample" if lower > 0.0 else "certificate_cell_budget_exhausted",
+            )
+
+    while True:
+        upper = max((cell["upper"] for cell in active), default=-math.inf)
+        max_h = max((cell["h"] for cell in active), default=0.0)
+        decision = classify_receive_certificate_bounds(lower, upper, precision)
+        if decision == "CERTIFIED_STRICT":
+            return result(
+                "CERTIFIED_STRICT", lower, upper, examined,
+                reason="global_upper_bound_nonpositive", h=max_h,
+            )
+        if decision == "CERTIFIED_VIOLATION":
+            return result(
+                "CERTIFIED_VIOLATION", lower, upper, examined,
+                counterexample=lower_point, reason="physical_counterexample", h=max_h,
+            )
+        if decision == "UNCERTAIN_BOUNDARY":
+            return result(
+                "UNCERTAIN_BOUNDARY", lower, upper, examined,
+                reason="certificate_interval_straddles_zero", h=max_h,
+            )
+        target = max(active, key=lambda cell: cell["upper"])
+        if target["depth"] >= cfg.certificate_max_depth:
+            return result(
+                "UNRESOLVED", lower, upper, examined,
+                reason="max_depth_with_active_physical_cell", h=target["h"],
+            )
+        active.remove(target)
+        children = _triangle_children(target["triangle"])
+        for child in children:
+            if not add_cell(child, target["depth"] + 1):
+                upper = max([math.inf] + [cell["upper"] for cell in active])
+                return result(
+                    "CERTIFIED_VIOLATION" if lower > 0.0 else "UNRESOLVED",
+                    lower, upper, examined,
+                    counterexample=lower_point if lower > 0.0 else None,
+                    reason="physical_counterexample" if lower > 0.0 else "certificate_cell_budget_exhausted",
+                )
 
 
 def make_P2(
@@ -994,7 +1057,10 @@ def evaluate_candidate_resolution(
         error_count=len(error_grid),
         scenario_count=scenario_count,
         error_step_deg=float(error_step_deg),
-        evaluation_status=("UNRESOLVED" if certificate["status"] == "UNRESOLVED" else "RESOLUTION_EVALUATED"),
+        evaluation_status=(
+            "UNRESOLVED" if certificate["status"] in {"UNRESOLVED", "UNCERTAIN_BOUNDARY"}
+            else "RESOLUTION_EVALUATED"
+        ),
     )
 
 
@@ -1055,8 +1121,8 @@ def _risk_subset_certificate() -> dict:
         "status": "RISK_RECEIVED_SUBSET",
         "certified": False,
         "strict_receive": False,
-        "eps_rec_m": None,
-        "eps_rec_source": "NOT_USED_BY_QAREA_OR_RISK_SUBSET",
+        "eps_rec_cert_m": None,
+        "eps_rec_cert_source": "NOT_USED_BY_QAREA_OR_RISK_SUBSET",
     }
 
 
@@ -1504,9 +1570,15 @@ def evaluate_candidate_nested(
         max_receive_violation = max((receive_violation(s2, item.G, s1) for item in verify_sources), default=-math.inf)
         verify_d_ok = verify_result.JD <= final_result.JD + estimated_d
         verify_r_ok = verify_result.JR <= final_result.JR + estimated_r
-        receive_ok = certificate["status"] != "CERTIFIED_STRICT" or max_receive_violation <= certificate["eps_rec_m"]
+        receive_check_status = strict_gverify_receive_status(
+            certificate["status"], max_receive_violation
+        )
+        receive_ok = receive_check_status == "PASS"
         gverify_report = {
-            "status": "PASS" if verify_d_ok and verify_r_ok and receive_ok else "GVERIFY_FAIL",
+            "status": (
+                "PASS" if verify_d_ok and verify_r_ok and receive_ok
+                else (receive_check_status if not receive_ok else "GVERIFY_FAIL")
+            ),
             "sample_set": "Gverify",
             "source_step_m": source_level / 2.0,
             "source_count": verify_result.source_count,
@@ -1527,7 +1599,7 @@ def evaluate_candidate_nested(
 
     assert final_result is not None
     overall_pass = (
-        certificate["status"] != "UNRESOLVED"
+        certificate["status"] == "CERTIFIED_STRICT"
         and source_status == "PASS"
         and error_status == "PASS"
         and gverify_report is not None
@@ -1559,9 +1631,9 @@ def evaluate_candidate_nested(
         "wording": "场景加密后的收敛数值最坏值",
         "candidate": final_result,
         "certificate": certificate,
-        "eps_rec_m": certificate["eps_rec_m"],
-        "eps_rec_source": certificate["eps_rec_source"],
-        "strict_certificate_threshold_provisional": True,
+        "eps_rec_cert_m": certificate["eps_rec_cert_m"],
+        "eps_rec_cert_source": certificate["eps_rec_cert_source"],
+        "strict_physical_threshold_m": 0.0,
         "source_convergence": source_status,
         "error_convergence": error_status,
         "source_history": source_history,
@@ -1938,8 +2010,6 @@ def _strict_components(cells: Sequence[CandidateCell]) -> list[list[CandidateCel
 
 def select_from_evaluated(
     candidates: Iterable[CandidateResult],
-    *,
-    eps_rec_provisional: bool = True,
 ) -> dict:
     """Apply the frozen Cstrict/C20/Pareto selection contract."""
 
@@ -1961,7 +2031,7 @@ def select_from_evaluated(
     else:
         pareto, selected, rule = [], None, "NO_CSTRICT"
     return {
-        "selection_status": "DEVELOPMENT_EPS_REC_PROVISIONAL" if eps_rec_provisional else "DEVELOPMENT",
+        "selection_status": "DEVELOPMENT",
         "rule": rule,
         "Cstrict": cstrict,
         "C20": c20,
@@ -2009,9 +2079,9 @@ def _write_m5a_outputs(output_dir: str | Path, result: dict) -> None:
         properties.update({
             "artifact_status": "DEVELOPMENT",
             "final_result": False,
-            "eps_rec_m": result["eps_rec_m"],
-            "eps_rec_source": result["eps_rec_source"],
-            "eps_rec_status": "EPS_REC_PROVISIONAL",
+            "eps_rec_cert_m": result["eps_rec_cert_m"],
+            "eps_rec_cert_source": result["eps_rec_cert_source"],
+            "eps_rec_cert_status": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         })
         if _cell_class(cell) == "strict" and cell.center_in_move_domain:
             geometry = {"type": "Point", "coordinates": list(cell.center)}
@@ -2026,9 +2096,9 @@ def _write_m5a_outputs(output_dir: str | Path, result: dict) -> None:
         "type": "FeatureCollection",
         "name": "Fstrict DEVELOPMENT point-certified approximation",
         "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
-        "eps_rec_m": result["eps_rec_m"],
-        "eps_rec_source": result["eps_rec_source"],
-        "eps_rec_status": "EPS_REC_PROVISIONAL",
+        "eps_rec_cert_m": result["eps_rec_cert_m"],
+        "eps_rec_cert_source": result["eps_rec_cert_source"],
+        "eps_rec_cert_status": "MODEL_FROZEN_CERTIFICATION_PRECISION",
         "features": features,
     }
     (directory / "Fstrict.geojson").write_text(json.dumps(geojson, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -2080,7 +2150,7 @@ def search_strict_candidates(
     samples = list(sample_scenarios) if sample_scenarios is not None else build_Gext(
         p1, s1, cfg.source_step_m
     )
-    eps_rec, eps_source = _certificate_epsilon(cfg)
+    eps_rec_cert, eps_source = _certificate_precision(cfg)
     levels = tuple(float(level) for level in cfg.candidate_steps_m)
     if levels != (50.0, 20.0, 5.0):
         raise ValueError("M5A candidate_steps_m must be exactly (50,20,5)")
@@ -2103,6 +2173,7 @@ def search_strict_candidates(
             "objective_candidate_count": sum(cell.objective_refinement for cell in cells),
             "certificate_calls": 0,
             "certificate_violation": 0, "certificate_strict": 0,
+            "certificate_uncertain_boundary": 0,
             "certificate_unresolved": 0, "M4_evaluated": 0,
             "M4_pass": 0, "M4_unresolved": 0, "lmin_excluded": 0,
             "cell_exclusion_certified": 0,
@@ -2126,19 +2197,21 @@ def search_strict_candidates(
             counterexample = None
             counterexample_margin = -math.inf
             for scenario in samples:
-                margin = receive_violation(cell.center, scenario.G, s1)
-                if margin > eps_rec and margin > counterexample_margin:
-                    counterexample, counterexample_margin = scenario.G, margin
+                screening = sample_receive_screen(
+                    cell.center, scenario.G, s1, cell_half_diagonal
+                )
+                if screening["point_violation"] and screening["margin_m"] > counterexample_margin:
+                    counterexample, counterexample_margin = scenario.G, screening["margin_m"]
             if counterexample is not None:
                 cell.status = "CERTIFIED_VIOLATION_SAMPLE"
                 cell.sample_counterexample = counterexample
                 cell.certificate = {
                     "status": "CERTIFIED_VIOLATION_SAMPLE", "certified": True,
                     "strict_receive": False, "counterexample": counterexample,
-                    "eps_rec_m": eps_rec, "eps_rec_source": eps_source,
+                    "eps_rec_cert_m": eps_rec_cert, "eps_rec_cert_source": eps_source,
                 }
                 counters["sample_rejected"] += 1
-                if counterexample_margin - cell_half_diagonal > eps_rec:
+                if counterexample_margin - cell_half_diagonal > 0.0:
                     cell.cell_exclusion_certified = True
                     counters["cell_exclusion_certified"] += 1
                 else:
@@ -2151,9 +2224,9 @@ def search_strict_candidates(
                 cell.status = "CERTIFIED_VIOLATION"
                 counters["certificate_violation"] += 1
                 counterexample = certificate.get("counterexample")
-                if counterexample is not None and receive_violation(
-                    cell.center, counterexample, s1
-                ) - cell_half_diagonal > eps_rec:
+                if counterexample is not None and sample_receive_screen(
+                    cell.center, counterexample, s1, cell_half_diagonal
+                )["whole_cell_violation"]:
                     cell.cell_exclusion_certified = True
                     counters["cell_exclusion_certified"] += 1
                 else:
@@ -2161,6 +2234,9 @@ def search_strict_candidates(
             elif certificate["status"] == "UNRESOLVED":
                 cell.status = "BOUNDARY_OR_UNRESOLVED"
                 counters["certificate_unresolved"] += 1
+            elif certificate["status"] == "UNCERTAIN_BOUNDARY":
+                cell.status = "BOUNDARY_OR_UNRESOLVED"
+                counters["certificate_uncertain_boundary"] += 1
             elif certificate["status"] == "CERTIFIED_STRICT":
                 counters["certificate_strict"] += 1
                 if cell.objective_refinement:
@@ -2237,12 +2313,13 @@ def search_strict_candidates(
         cell.m4_result["candidate"] for cell in final_cells
         if cell.status == "STRICT_INTERIOR" and cell.m4_result is not None
     ]
-    selection = select_from_evaluated(evaluated, eps_rec_provisional=cfg.eps_rec_m is None)
+    selection = select_from_evaluated(evaluated)
     result = {
         "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
         "selection_status": selection["selection_status"],
-        "eps_rec_m": eps_rec,
-        "eps_rec_source": eps_source,
+        "eps_rec_cert_m": eps_rec_cert,
+        "eps_rec_cert_source": eps_source,
+        "strict_physical_threshold_m": 0.0,
         "strict_region_representation": "point-certified approximation plus uncertainty cells",
         "search_box": bounds,
         "candidate_levels_m": list(levels),
@@ -2265,11 +2342,71 @@ def search_strict_candidates(
         ),
         "selection": selection,
         "runtime_s": time.perf_counter() - search_started,
-        "warnings": ["EPS_REC_PROVISIONAL"] if cfg.eps_rec_m is None else [],
+        "warnings": [],
     }
     if output_dir is not None:
         _write_m5a_outputs(output_dir, result)
     return result
+
+
+def run_eps_rec_cert_sensitivity(
+    S1: Sequence[float], theta1_hat_deg: float,
+    values: Sequence[float] = (1.0e-4, 1.0e-3, 1.0e-2),
+    config: Optional[Q2Config] = None,
+    output_path: Optional[str | Path] = None,
+    **search_kwargs,
+) -> dict:
+    """Compare certification precision without changing the zero physical threshold."""
+
+    base = config or Q2Config()
+    records = []
+    for value in values:
+        cfg = replace(base, eps_rec_cert_m=float(value), eps_rec_m=None)
+        search = search_strict_candidates(S1, theta1_hat_deg, cfg, **search_kwargs)
+        final_level = min(search["candidate_levels_m"])
+        final_cells = [cell for cell in search["region_cells"] if cell.level_m == final_level]
+        counts = {
+            status: sum(
+                cell.certificate is not None and cell.certificate.get("status") == status
+                for cell in final_cells
+            )
+            for status in (
+                "CERTIFIED_STRICT", "CERTIFIED_VIOLATION",
+                "UNCERTAIN_BOUNDARY", "UNRESOLVED",
+            )
+        }
+        selected = search["selection"]["selected_strict"]
+        records.append({
+            "eps_rec_cert_m": float(value),
+            "strict_physical_threshold_m": 0.0,
+            "certificate_status_counts": counts,
+            "Cstrict_count": len(search["selection"]["Cstrict"]),
+            "UNCERTAIN_BOUNDARY_count": counts["UNCERTAIN_BOUNDARY"],
+            "selected_strict": None if selected is None else list(selected.S2),
+            "JR": None if selected is None else selected.JR,
+            "JD": None if selected is None else selected.JD,
+            "T2": None if selected is None else selected.T2,
+        })
+    signatures = {
+        (
+            record["Cstrict_count"], record["UNCERTAIN_BOUNDARY_count"],
+            None if record["selected_strict"] is None else tuple(record["selected_strict"]),
+        )
+        for record in records
+    }
+    report = {
+        "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+        "status": "EPS_REC_CERT_SENSITIVE" if len(signatures) > 1 else "PASS",
+        "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
+        "strict_physical_threshold_m": 0.0,
+        "records": records,
+        "warnings": ["EPS_REC_CERT_SENSITIVE"] if len(signatures) > 1 else [],
+    }
+    if output_path is not None:
+        path = Path(output_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    return report
 
 
 def _dominates(a: CandidateResult, b: CandidateResult, epsD: float, epsR: float, epsT: float) -> bool:
@@ -2335,8 +2472,9 @@ def solve_q2(S1: Sequence[float], theta1_hat_deg: float, config: Optional[Q2Conf
             "pending": ["M6"],
             "geometry_dependency": "Q1-localization-v1 VERIFIED",
             "continuous_strict_certificate": "triangle-cell 2-Lipschitz branch-and-bound",
-            "eps_rec_m": _certificate_epsilon(cfg)[0],
-            "eps_rec_source": _certificate_epsilon(cfg)[1],
+            "eps_rec_cert_m": _certificate_precision(cfg)[0],
+            "eps_rec_cert_source": _certificate_precision(cfg)[1],
+            "strict_physical_threshold_m": 0.0,
             "worst_value_wording": "场景加密后的收敛数值最坏值",
         },
     ).to_dict()
@@ -2347,10 +2485,13 @@ __all__ = [
     "AreaIntegrationCell", "AreaCoverageResult", "RiskCandidateResult",
     "bearing", "wrap_pi", "build_P1_bound", "physical_filter", "receive_floor",
     "receive_violation", "certified_strict", "make_P2", "fim_order_score",
+    "classify_receive_certificate_bounds", "sample_receive_screen",
+    "strict_gverify_receive_status",
     "build_Gext", "build_Gverify", "build_error_grid", "relchg",
     "evaluate_candidate_resolution", "evaluate_candidate", "evaluate_candidate_nested",
     "merge_verified_worst", "replay_worst_scenario", "pareto_front", "select_best",
     "select_from_evaluated", "search_strict_candidates", "validate_solution", "solve_q2",
+    "run_eps_rec_cert_sensitivity",
     "build_Garea", "integrate_qarea", "classify_risk_threshold",
     "evaluate_risk_received_subset", "evaluate_risk_candidate", "evaluate_risk_candidates",
     "write_m5b_outputs",

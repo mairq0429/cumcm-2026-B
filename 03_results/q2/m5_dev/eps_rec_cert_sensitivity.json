@@ -1,0 +1,66 @@
+{
+  "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+  "status": "PASS",
+  "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
+  "strict_physical_threshold_m": 0.0,
+  "records": [
+    {
+      "eps_rec_cert_m": 0.0001,
+      "strict_physical_threshold_m": 0.0,
+      "certificate_status_counts": {
+        "CERTIFIED_STRICT": 2,
+        "CERTIFIED_VIOLATION": 0,
+        "UNCERTAIN_BOUNDARY": 0,
+        "UNRESOLVED": 0
+      },
+      "Cstrict_count": 2,
+      "UNCERTAIN_BOUNDARY_count": 0,
+      "selected_strict": [
+        1772.5,
+        27.5
+      ],
+      "JR": 3.6475690805751046,
+      "JD": 7.295138161150209,
+      "T2": 15.508062419270823
+    },
+    {
+      "eps_rec_cert_m": 0.001,
+      "strict_physical_threshold_m": 0.0,
+      "certificate_status_counts": {
+        "CERTIFIED_STRICT": 2,
+        "CERTIFIED_VIOLATION": 0,
+        "UNCERTAIN_BOUNDARY": 0,
+        "UNRESOLVED": 0
+      },
+      "Cstrict_count": 2,
+      "UNCERTAIN_BOUNDARY_count": 0,
+      "selected_strict": [
+        1772.5,
+        27.5
+      ],
+      "JR": 3.6475690805751046,
+      "JD": 7.295138161150209,
+      "T2": 15.508062419270823
+    },
+    {
+      "eps_rec_cert_m": 0.01,
+      "strict_physical_threshold_m": 0.0,
+      "certificate_status_counts": {
+        "CERTIFIED_STRICT": 2,
+        "CERTIFIED_VIOLATION": 0,
+        "UNCERTAIN_BOUNDARY": 0,
+        "UNRESOLVED": 0
+      },
+      "Cstrict_count": 2,
+      "UNCERTAIN_BOUNDARY_count": 0,
+      "selected_strict": [
+        1772.5,
+        27.5
+      ],
+      "JR": 3.6475690805751046,
+      "JD": 7.295138161150209,
+      "T2": 15.508062419270823
+    }
+  ],
+  "warnings": []
+}

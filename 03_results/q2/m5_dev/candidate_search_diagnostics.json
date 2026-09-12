@@ -1,8 +1,9 @@
 {
   "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
-  "selection_status": "DEVELOPMENT_EPS_REC_PROVISIONAL",
-  "eps_rec_m": 0.001,
-  "eps_rec_source": "IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED",
+  "selection_status": "DEVELOPMENT",
+  "eps_rec_cert_m": 0.001,
+  "eps_rec_cert_source": "MODEL_FROZEN_CERTIFICATION_PRECISION",
+  "strict_physical_threshold_m": 0.0,
   "strict_region_representation": "point-certified approximation plus uncertainty cells",
   "search_box": [
     1769.0,
@@ -24,13 +25,14 @@
       "certificate_calls": 1,
       "certificate_violation": 0,
       "certificate_strict": 1,
+      "certificate_uncertain_boundary": 0,
       "certificate_unresolved": 0,
       "M4_evaluated": 1,
       "M4_pass": 0,
       "M4_unresolved": 1,
       "lmin_excluded": 0,
       "cell_exclusion_certified": 0,
-      "runtime_s": 2.3274565000028815
+      "runtime_s": 2.426381699995545
     },
     {
       "candidate_total": 1,
@@ -40,13 +42,14 @@
       "certificate_calls": 1,
       "certificate_violation": 0,
       "certificate_strict": 1,
+      "certificate_uncertain_boundary": 0,
       "certificate_unresolved": 0,
       "M4_evaluated": 1,
       "M4_pass": 1,
       "M4_unresolved": 0,
       "lmin_excluded": 0,
       "cell_exclusion_certified": 0,
-      "runtime_s": 2.3086546000049566
+      "runtime_s": 3.209112399999867
     },
     {
       "candidate_total": 9,
@@ -56,13 +59,14 @@
       "certificate_calls": 2,
       "certificate_violation": 0,
       "certificate_strict": 2,
+      "certificate_uncertain_boundary": 0,
       "certificate_unresolved": 0,
       "M4_evaluated": 2,
       "M4_pass": 2,
       "M4_unresolved": 0,
       "lmin_excluded": 0,
       "cell_exclusion_certified": 0,
-      "runtime_s": 3.5501374999948894
+      "runtime_s": 4.674086299994087
     }
   ],
   "region_candidate_count_by_level": {
@@ -97,8 +101,6 @@
     }
   ],
   "omega_boundary_method": "conservative cell-bbox/polygon intersection; outside-center cells remain uncertainty",
-  "runtime_s": 8.186332099998253,
-  "warnings": [
-    "EPS_REC_PROVISIONAL"
-  ]
+  "runtime_s": 10.309703899998567,
+  "warnings": []
 }
