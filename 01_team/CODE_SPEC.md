@@ -31,8 +31,8 @@
 - 对应 MODEL_SPEC 版本：Q2-robust-selection-v2.1（DERIVED）
 - 源代码文件：B_code/src/q2_selection.py
 - 公开主函数：solve_q2(S1, theta1_hat_deg, config=None) -> dict
-- 公开构件：Q2Config、SourceScenario、CandidateResult、WorstScenario、Q2Result、CandidateCell、bearing、wrap_pi、build_P1_bound、physical_filter、receive_floor、receive_violation、certified_strict、make_P2、build_Gext、build_Gverify、build_error_grid、relchg、fim_order_score、evaluate_candidate_resolution、evaluate_candidate_nested、replay_worst_scenario、search_strict_candidates、select_from_evaluated，以及保留的兼容评价接口。
-- 输入输出：输入第一次检测点/示向及配置；M1--M3 输出 P1 外/内近似、物理过滤、连续域严格接收证书和单场景 P2 的 status/area/diameter/MEC/一致性诊断。M4 已实现单个给定 S2 的 source-outer/error-inner 嵌套最坏评价；M5A 已实现全局 strict 候选 50→20→5 m 自适应搜索、开发态区域表达和 C20/Pareto 选择框架。风险面积、Lmin 敏感性、整体收敛与正式结果属于 M5B--M6，尚未实现。
+- 公开构件：Q2Config、SourceScenario、CandidateResult、WorstScenario、Q2Result、CandidateCell、AreaIntegrationCell、AreaCoverageResult、RiskCandidateResult、bearing、wrap_pi、build_P1_bound、physical_filter、receive_floor、receive_violation、certified_strict、make_P2、build_Gext、build_Gverify、build_Garea、build_error_grid、relchg、fim_order_score、evaluate_candidate_resolution、evaluate_candidate_nested、replay_worst_scenario、search_strict_candidates、select_from_evaluated、integrate_qarea、classify_risk_threshold、evaluate_risk_candidate、evaluate_risk_received_subset、evaluate_risk_candidates、write_m5b_outputs，以及保留的兼容评价接口。
+- 输入输出：输入第一次检测点/示向及配置；M1--M3 输出 P1 外/内近似、物理过滤、连续域严格接收证书和单场景 P2 的 status/area/diameter/MEC/一致性诊断。M4 已实现单个给定 S2 的 source-outer/error-inner 嵌套最坏评价；M5A/M5A.1 已实现 strict 候选自适应搜索及 region/objective 双细化链；M5B 已实现开发态几何风险面积证书、阈值三态和 received-subset worst。Lmin 敏感性、整体收敛与正式结果属于 M6，尚未实现。
 - 依赖：Q1-localization-v1 VERIFIED；直接复用 `DEFAULT_TOLERANCES`、wedge/circle/clip/clean/classify/diameter/MEC/area/point-membership 公共实现。Q2 默认圆分辨率 1440，不改变 Q1 默认 720。
 - 接收半径语义：实际物理量是固定但未知的 `rho∈[1000,1500]`；第一次在 `S1` 成功接收后，`receive_floor(G)=max(1000,||G-S1||)` 仅为条件相容的最小可能 `rho`，不是实际接收半径。
 - 数值证书：Q1 `DEFAULT_TOLERANCES` 仅用于底层几何。`eps_rec` 是独立的 Q2 branch-and-bound 认证误差参数，当前未获模型冻结；`Q2Config.eps_rec_m=None` 时采用明确标记为 `IMPLEMENTATION_PARAMETER / NOT_MODEL_VERIFIED` 的开发默认值，并在 diagnostics/certificate 输出实际值和来源。三角单元使用 2-Lipschitz 上界。
@@ -44,9 +44,12 @@
 - M5A 候选搜索：`search_strict_candidates` 在 `Omega_move` 缺省时使用 `bbox(P1_bound)` 四周扩 1500 m 的搜索盒，并按 50→20→5 m 建立带稳定 level/ix/iy/center/bbox ID 的候选单元。Stage A 仅用物理合法 Gext 的真实反例作安全点排除，Stage B 再调用连续域 `certified_strict`。中心点反例不自动排除整格；仅当基于 S2 的 1-Lipschitz 裕量证明整个单元仍违规时，才标 `cell_exclusion_certified`。
 - M5A.1 双细化链：`region_cells` 与 `objective_cells` 使用独立父单元集合。区域链中只有 `cell_exclusion_certified=True` 的整格安全违规/Lmin 排除单元可停止；point strict、UNRESOLVED、无整格证书的 point violation、Lmin boundary 和 Omega 边界相交格均继续到 5 m。目标链仍按 near-optimal strict connected branches、C20 的 T2 单元下界及无 C20 时的保守 Pareto 潜在分支细化；只有目标链中的 `CERTIFIED_STRICT` 点调用完整 M4。结果及 diagnostics 分别记录 region/objective 各级单元、certificate calls 和 M4 calls。
 - M5A 选择与输出：`Cstrict` 仅含 strict certificate、M4 CONVERGED 且满足 Lmin 的 objective 候选；`C20` 使用吸收 Gverify 后的 validated JR。C20 非空按 `(T2,JR,JD,x,y)`；否则先作 tolerance-aware Pareto(JR,JD,T2)，再按 `(JR,JD,T2,x,y)`。开发输出位于 `03_results/q2/m5_dev/`；`Fstrict.geojson` 基于 region refinement 的最终 5 m 层，将 strict 中心写为 `point_certified` Point，将边界/不确定单元另写为 `uncertainty_cell` Polygon，不把中心证书虚构为整格证书。Omega 使用保守 cell-bbox/polygon 相交判断，中心在域外的相交格只作为 uncertainty。全部标记 `DEVELOPMENT / NOT_FINAL_Q2_RESULT / EPS_REC_PROVISIONAL`。
+- M5B 面积积分：`build_Garea/integrate_qarea` 是与 Gext/Gverify 完全分离的确定性 adaptive square-cell 面积体系，不使用点数比例或边界采样权重。矩形对 P1 凸多边形采用角点内含与安全分离，对 1800/1500/5 m 圆约束采用 box 最小/最大距离界；接收集合严格使用 `receive_violation<=0`，以 2-Lipschitz cell 上下界分类。只细化 physical/receive UNCERTAIN 单元，输出 `Aphys/Arecv` 上下界和中点估计、`Earea_phys/Earea_recv/Earea`、`EPS_Q=max(1e-6,Earea/Aphys_est)` 与 Q 比例区间。`area_step_m=40`、`area_q_tol=1e-2`、refine rounds/cell budget 均为 IMPLEMENTATION_PARAMETER，不是官方或模型冻结参数。
+- M5B 风险语义：0.99/0.95 分别按 `Q_lower>=alpha`、`Q_upper<alpha` 或夹跨阈值输出 `CERTIFIED_ABOVE_ALPHA/CERTIFIED_BELOW_ALPHA/THRESHOLD_UNRESOLVED`，不得用 Qarea estimate 或 EPS_Q 放宽进入风险集。风险 JD/JR/JA 只在 `receive_violation<=0` 的 Gext/Gverify 子集上作 source/error 加密，并合并独立 Gverify worst；未接收源不生成 P2、不作为 NO_SIGNAL 有限惩罚。所有风险结果 `robust_guarantee=False`，不得进入 Cstrict；本轮只输出 C099/C095 开发 shortlist，不定义正式风险推荐排序。
+- M5B 输出：`03_results/q2/m5b_dev/` 的 coverage/risk CSV、`Frisk099/095.geojson` 和两类 diagnostics 均标记 `DEVELOPMENT / NOT_FINAL_Q2_RESULT / GEOMETRIC_AREA_NOT_PROBABILITY`，且不覆盖或改变 Fstrict。
 - 测试文件：B_code/tests/test_q2_selection.py
-- 算法版本：Q2-selection-v2.1（开发中，当前完成 M1--M5A）
-- 状态：CODED=NO, TESTED=NO, VERIFIED=NO；T01--T11、T13--T17 中 T13/T14/T15/T16/T17 已通过；T12 保持 PARTIAL/NOT_RUN。M5B--M6、整体离散收敛与最终交叉验证未完成，不得自行标记 VERIFIED。
+- 算法版本：Q2-selection-v2.1（开发中，当前完成 M1--M5B）
+- 状态：CODED=NO, TESTED=NO, VERIFIED=NO；T01--T11、T13--T17 中 T13/T14/T15/T16/T17 及 M5B implementation tests 已通过；T12 保持 PARTIAL/NOT_RUN。M6、整体离散收敛与最终交叉验证未完成，不得自行标记 VERIFIED。
 
 ## Q3
 

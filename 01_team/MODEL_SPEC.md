@@ -31,9 +31,9 @@
 - Frozen Requirements R1--R18：R1 上述 `P1_bound/P1_phys`；R2 严格物理过滤；R3 条件接收半径与严格不等式；R4 无目标圆 S2 限制及可配置 `Omega_move`；R5 全部基础几何和容差复用 Q1 VERIFIED；R6 `P1_out/P1_in` 双近似且正式结果用外包；R7 `Gext/Garea/Gverify` 分离；R8 2-Lipschitz 三角单元连续域证书且不把物理非法点当反例；R9 near 与普通第二观测定义；R10 `NO_SIGNAL` 语义；R11 `JD/JR/JA`、独立最坏场景与 MEC 一致性；R12 官方 20 m 与队内 17 m 分离；R13 `T2` 定义及 Q3 集成时间仅诊断；R14 第二误差 0.1→0.05 degree 自适应收敛；R15 source 20→10→5 m 与独立 `Gverify`；R16 candidate 50→20→5 m、所有近优连通分支、FIM 只排序；R17 `Qarea/Earea`、风险候选及真正区域形式 `Fstrict.geojson`；R18 tolerance-aware Pareto、`Lmin=20/50/100/150 m` 敏感性、1440→2880 圆近似收敛、规定输出与 T01--T17。
 - Parameters：官方参数为 1800 m、示向误差 `+/-1 degree`、接收半径 1000--1500 m、near `<=5 m`、测量 5 s、速度 5 m/s、清除 `<=20 m`。队内参数为 `circle_sides=1440`、`source_step=20 m`、`error_step=0.1 degree`、candidate grid 50/20/5 m、`Lmin=50 m`、17 m、0.99/0.95 及 Q1 `DEFAULT_TOLERANCES`；均不得写成官方参数。
 - Algorithm：圆盘正式用外切正 1440 边形，并同时算内接多边形夹逼；检查 1440→2880 的 area、JD、JR、Fstrict 与选点坐标。严格证书采用三角单元 branch-and-bound，活动单元直径 `h` 的上界为 `f(Gc)+2h`。误差、源样本和候选网格分别加密；只称“场景加密后的收敛数值最坏值”，不称连续解析全局最大值。
-- Validation：T01--T11 已覆盖 M1--M3；M4 的 T13 独立 `Gverify`、T14 最坏场景 replay、T17 source/error convergence 已覆盖并通过；M5A 的 T15 选择规则与 T16 全链路物理过滤已覆盖并通过。T12 仍为 PARTIAL/NOT_RUN，因为 1440→2880 与 candidate grid 整体离散收敛属于 M6。最终仍需圆盘、source、error、candidate 四类收敛及 `Lmin=20/50/100/150 m` 敏感性；若明显变化发出 `LMIN_SENSITIVE`。
+- Validation：T01--T11 已覆盖 M1--M3；M4 的 T13 独立 `Gverify`、T14 最坏场景 replay、T17 source/error convergence 已覆盖并通过；M5A 的 T15 选择规则与 T16 全链路物理过滤已覆盖并通过；M5B 已完成面积上下界、阈值三态、确定性稠密 oracle、received-subset worst 与独立 Gverify implementation tests。T12 仍为 PARTIAL/NOT_RUN，因为 1440→2880 与 candidate grid 整体离散收敛属于 M6。最终仍需圆盘、source、error、candidate 四类收敛及 `Lmin=20/50/100/150 m` 敏感性；若明显变化发出 `LMIN_SENSITIVE`。
 - References：《B题第二问鲁棒选点模型编程规格书 v2.1 建模确认清单冻结版》。
-- Last Verified By：尚未验证；当前实现已完成 M1--M5A，M5B--M6 及最终交叉验证待完成。
+- Last Verified By：尚未验证；当前实现已完成 M1--M5B，M6 及最终交叉验证待完成。
 
 ## Q3
 

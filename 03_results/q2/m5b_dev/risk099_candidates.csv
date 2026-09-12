@@ -1,0 +1,2 @@
+x,y,T2,Aphys_low,Aphys_high,Aphys_est,Arecv_low,Arecv_high,Arecv_est,Q_lower,Q_upper,Qarea_est,Earea_phys,Earea_recv,Earea,EPS_Q,integration_status,alpha_099_status,alpha_095_status,JD_received,JR_received,JA_received,risk_level,risk_evaluation_status,robust_guarantee,coverage_type,artifact_status
+0.0,0.0,0.0,10000.0,10000.0,10000.0,10000.0,10000.0,10000.0,1.0,1.0,1.0,0.0,0.0,0.0,1e-06,PASS,CERTIFIED_ABOVE_ALPHA,CERTIFIED_ABOVE_ALPHA,104.03095843636804,52.01547921818402,551.9161009367692,C099;C095,PASS,False,GEOMETRIC_AREA_NOT_PROBABILITY,DEVELOPMENT / NOT_FINAL_Q2_RESULT

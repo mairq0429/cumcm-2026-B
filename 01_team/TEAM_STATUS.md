@@ -11,7 +11,7 @@
 
 ## 进行中
 
-- Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M4.1、M5A strict candidate search 与 M5A.1 region/objective 双细化链已实现；M5B--M6 待实现。
+- Q2-robust-selection-v2.1 IMPLEMENTATION：M1--M5B 已实现，包括 M5A.1 双细化链与 M5B geometric risk-area engine；M6 待实现。
 
 ## 待验证
 
@@ -23,7 +23,7 @@
 
 ## 今天必须完成
 
-- Q2 M1--M5A（已完成）；后续 M5B--M6 不得牺牲正确性抢进度。
+- Q2 M1--M5B（已完成）；后续 M6 不得牺牲正确性抢进度。
 
 ## 当前冻结版本
 

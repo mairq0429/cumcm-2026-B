@@ -1,0 +1,1058 @@
+{
+  "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+  "wording": "在能够保证再次接收到信号的场景子集内的场景加密后收敛数值最坏值",
+  "robust_guarantee": false,
+  "candidates": [
+    {
+      "S2": [
+        0.0,
+        0.0
+      ],
+      "coverage": {
+        "S2": [
+          0.0,
+          0.0
+        ],
+        "Aphys_low": 10000.0,
+        "Aphys_high": 10000.0,
+        "Aphys_est": 10000.0,
+        "Arecv_low": 10000.0,
+        "Arecv_high": 10000.0,
+        "Arecv_est": 10000.0,
+        "Q_lower": 1.0,
+        "Q_upper": 1.0,
+        "Qarea_est": 1.0,
+        "Earea_phys": 0.0,
+        "Earea_recv": 0.0,
+        "Earea": 0.0,
+        "EPS_Q": 1e-06,
+        "integration_status": "PASS",
+        "alpha_099_status": "CERTIFIED_ABOVE_ALPHA",
+        "alpha_095_status": "CERTIFIED_ABOVE_ALPHA",
+        "cell_count": 9,
+        "refinement_history": [
+          {
+            "round": 0,
+            "nominal_step_m": 40.0,
+            "cell_count": 9,
+            "physical_uncertain": 0,
+            "receive_uncertain": 0,
+            "Aphys_low": 10000.0,
+            "Aphys_high": 10000.0,
+            "Aphys_est": 10000.0,
+            "Arecv_low": 10000.0,
+            "Arecv_high": 10000.0,
+            "Arecv_est": 10000.0,
+            "Q_lower": 1.0,
+            "Q_upper": 1.0,
+            "Qarea_est": 1.0,
+            "Earea_phys": 0.0,
+            "Earea_recv": 0.0,
+            "Earea": 0.0,
+            "EPS_Q": 1e-06
+          }
+        ],
+        "coverage_type": "GEOMETRIC_AREA_NOT_PROBABILITY"
+      },
+      "JD_received": 104.03095843636804,
+      "JR_received": 52.01547921818402,
+      "JA_received": 551.9161009367692,
+      "worst_received_scenarios": {
+        "JD": {
+          "metric": "JD",
+          "value": 104.03095843636804,
+          "G": [
+            120.0,
+            -30.0
+          ],
+          "e2_deg": 1.0,
+          "status": "BEARING",
+          "theta2_hat_deg": -13.036243467926479,
+          "diameter": 104.03095843636804,
+          "mec_radius": 52.01547921818402,
+          "area": 551.7330282991745,
+          "mec_center": [
+            150.0,
+            -35.660889905669414
+          ],
+          "mec_support": [
+            [
+              100.0,
+              -21.32177981133883
+            ],
+            [
+              200.0,
+              -50.0
+            ]
+          ],
+          "source_level": 10.0,
+          "sample_set": "Gext",
+          "sample_origin": "interior",
+          "near_limit_eta_m": null,
+          "tq3_move_from_s2_s": 30.836147015387166
+        },
+        "JR": {
+          "metric": "JR",
+          "value": 52.01547921818402,
+          "G": [
+            120.0,
+            -30.0
+          ],
+          "e2_deg": 1.0,
+          "status": "BEARING",
+          "theta2_hat_deg": -13.036243467926479,
+          "diameter": 104.03095843636804,
+          "mec_radius": 52.01547921818402,
+          "area": 551.7330282991745,
+          "mec_center": [
+            150.0,
+            -35.660889905669414
+          ],
+          "mec_support": [
+            [
+              100.0,
+              -21.32177981133883
+            ],
+            [
+              200.0,
+              -50.0
+            ]
+          ],
+          "source_level": 10.0,
+          "sample_set": "Gext",
+          "sample_origin": "interior",
+          "near_limit_eta_m": null,
+          "tq3_move_from_s2_s": 30.836147015387166
+        },
+        "JA": {
+          "metric": "JA",
+          "value": 551.9161009367692,
+          "G": [
+            167.5,
+            37.5
+          ],
+          "e2_deg": 0.5,
+          "status": "BEARING",
+          "theta2_hat_deg": 13.119322293430773,
+          "diameter": 103.98925830438078,
+          "mec_radius": 51.99462915219039,
+          "area": 551.9161009367692,
+          "mec_center": [
+            150.0,
+            35.73670933221206
+          ],
+          "mec_support": [
+            [
+              100.0,
+              21.47341866442411
+            ],
+            [
+              200.0,
+              50.0
+            ]
+          ],
+          "source_level": 5.0,
+          "sample_set": "Gverify",
+          "sample_origin": "verify_interior",
+          "near_limit_eta_m": null,
+          "tq3_move_from_s2_s": 30.839657841094812
+        }
+      },
+      "risk_level": [
+        "C099",
+        "C095"
+      ],
+      "T2": 0.0,
+      "robust_guarantee": false,
+      "evaluation_status": "PASS",
+      "gverify": {
+        "status": "PASS",
+        "optimizer_received_count": 121,
+        "verify_received_count": 480,
+        "JD_verify": 104.03094594280891,
+        "JR_verify": 52.01547297140446,
+        "JA_verify": 551.9161009367692,
+        "validated_JD": 104.03095843636804,
+        "validated_JR": 52.01547921818402,
+        "validated_JA": 551.9161009367692,
+        "verify_exceeded_optimizer": {
+          "JD": false,
+          "JR": false,
+          "JA": true
+        },
+        "replay": {
+          "JD": {
+            "metric": "JD",
+            "status": "PASS",
+            "checks": {
+              "value": true,
+              "status": true,
+              "G": true,
+              "e2": true,
+              "mec_center": true,
+              "mec_support": true
+            },
+            "replayed_value": 104.03095843636804,
+            "stored_value": 104.03095843636804,
+            "tolerance": 0.00018
+          },
+          "JR": {
+            "metric": "JR",
+            "status": "PASS",
+            "checks": {
+              "value": true,
+              "status": true,
+              "G": true,
+              "e2": true,
+              "mec_center": true,
+              "mec_support": true
+            },
+            "replayed_value": 52.01547921818402,
+            "stored_value": 52.01547921818402,
+            "tolerance": 0.00018
+          },
+          "JA": {
+            "metric": "JA",
+            "status": "PASS",
+            "checks": {
+              "value": true,
+              "status": true,
+              "G": true,
+              "e2": true,
+              "mec_center": true,
+              "mec_support": true
+            },
+            "replayed_value": 551.9161009367692,
+            "stored_value": 551.9161009367692,
+            "tolerance": 0.000324
+          }
+        }
+      },
+      "source_history": [
+        {
+          "source_level_m": 20.0,
+          "source_count": 50,
+          "error_step_deg": 0.05,
+          "JD_received": 104.03095843636804,
+          "JR_received": 52.01547921818402,
+          "JA_received": 551.9132949682562,
+          "relchg_D": null,
+          "relchg_R": null
+        },
+        {
+          "source_level_m": 10.0,
+          "source_count": 121,
+          "error_step_deg": 0.05,
+          "JD_received": 104.03095843636804,
+          "JR_received": 52.01547921818402,
+          "JA_received": 551.9132949682562,
+          "relchg_D": 0.0,
+          "relchg_R": 0.0
+        }
+      ],
+      "error_history": [
+        {
+          "source_level_m": 20.0,
+          "source_count": 50,
+          "error_step_deg": 0.1,
+          "error_count": 21,
+          "JD_received": 104.03095843636804,
+          "JR_received": 52.01547921818402,
+          "JA_received": 551.9132949682562,
+          "relchg_D": null,
+          "relchg_R": null
+        },
+        {
+          "source_level_m": 20.0,
+          "source_count": 50,
+          "error_step_deg": 0.05,
+          "error_count": 41,
+          "JD_received": 104.03095843636804,
+          "JR_received": 52.01547921818402,
+          "JA_received": 551.9132949682562,
+          "relchg_D": 0.0,
+          "relchg_R": 0.0
+        },
+        {
+          "source_level_m": 10.0,
+          "source_count": 121,
+          "error_step_deg": 0.1,
+          "error_count": 21,
+          "JD_received": 104.03095843636804,
+          "JR_received": 52.01547921818402,
+          "JA_received": 551.9132949682562,
+          "relchg_D": null,
+          "relchg_R": null
+        },
+        {
+          "source_level_m": 10.0,
+          "source_count": 121,
+          "error_step_deg": 0.05,
+          "error_count": 41,
+          "JD_received": 104.03095843636804,
+          "JR_received": 52.01547921818402,
+          "JA_received": 551.9132949682562,
+          "relchg_D": 0.0,
+          "relchg_R": 0.0
+        }
+      ],
+      "warnings": [],
+      "wording": "在能够保证再次接收到信号的场景子集内的场景加密后收敛数值最坏值",
+      "coverage_type": "GEOMETRIC_AREA_NOT_PROBABILITY"
+    },
+    {
+      "S2": [
+        1100.0,
+        0.0
+      ],
+      "coverage": {
+        "S2": [
+          1100.0,
+          0.0
+        ],
+        "Aphys_low": 10000.0,
+        "Aphys_high": 10000.0,
+        "Aphys_est": 10000.0,
+        "Arecv_low": 9634.375,
+        "Arecv_high": 10000.0,
+        "Arecv_est": 9817.1875,
+        "Q_lower": 0.9634375,
+        "Q_upper": 1.0,
+        "Qarea_est": 0.98171875,
+        "Earea_phys": 0.0,
+        "Earea_recv": 365.625,
+        "Earea": 365.625,
+        "EPS_Q": 0.0365625,
+        "integration_status": "AREA_INTEGRATION_UNRESOLVED",
+        "alpha_099_status": "THRESHOLD_UNRESOLVED",
+        "alpha_095_status": "CERTIFIED_ABOVE_ALPHA",
+        "cell_count": 159,
+        "refinement_history": [
+          {
+            "round": 0,
+            "nominal_step_m": 40.0,
+            "cell_count": 9,
+            "physical_uncertain": 0,
+            "receive_uncertain": 3,
+            "Aphys_low": 10000.0,
+            "Aphys_high": 10000.0,
+            "Aphys_est": 10000.0,
+            "Arecv_low": 6000.0,
+            "Arecv_high": 10000.0,
+            "Arecv_est": 8000.0,
+            "Q_lower": 0.6,
+            "Q_upper": 1.0,
+            "Qarea_est": 0.8,
+            "Earea_phys": 0.0,
+            "Earea_recv": 4000.0,
+            "Earea": 4000.0,
+            "EPS_Q": 0.4
+          },
+          {
+            "round": 1,
+            "nominal_step_m": 20.0,
+            "cell_count": 18,
+            "physical_uncertain": 0,
+            "receive_uncertain": 6,
+            "Aphys_low": 10000.0,
+            "Aphys_high": 10000.0,
+            "Aphys_est": 10000.0,
+            "Arecv_low": 8000.0,
+            "Arecv_high": 10000.0,
+            "Arecv_est": 9000.0,
+            "Q_lower": 0.8,
+            "Q_upper": 1.0,
+            "Qarea_est": 0.9,
+            "Earea_phys": 0.0,
+            "Earea_recv": 2000.0,
+            "Earea": 2000.0,
+            "EPS_Q": 0.2
+          },
+          {
+            "round": 2,
+            "nominal_step_m": 10.0,
+            "cell_count": 36,
+            "physical_uncertain": 0,
+            "receive_uncertain": 13,
+            "Aphys_low": 10000.0,
+            "Aphys_high": 10000.0,
+            "Aphys_est": 10000.0,
+            "Arecv_low": 8900.0,
+            "Arecv_high": 10000.0,
+            "Arecv_est": 9450.0,
+            "Q_lower": 0.89,
+            "Q_upper": 1.0,
+            "Qarea_est": 0.945,
+            "Earea_phys": 0.0,
+            "Earea_recv": 1100.0,
+            "Earea": 1100.0,
+            "EPS_Q": 0.11
+          },
+          {
+            "round": 3,
+            "nominal_step_m": 5.0,
+            "cell_count": 75,
+            "physical_uncertain": 0,
+            "receive_uncertain": 28,
+            "Aphys_low": 10000.0,
+            "Aphys_high": 10000.0,
+            "Aphys_est": 10000.0,
+            "Arecv_low": 9400.0,
+            "Arecv_high": 10000.0,
+            "Arecv_est": 9700.0,
+            "Q_lower": 0.94,
+            "Q_upper": 1.0,
+            "Qarea_est": 0.97,
+            "Earea_phys": 0.0,
+            "Earea_recv": 600.0,
+            "Earea": 600.0,
+            "EPS_Q": 0.06
+          },
+          {
+            "round": 4,
+            "nominal_step_m": 2.5,
+            "cell_count": 159,
+            "physical_uncertain": 0,
+            "receive_uncertain": 69,
+            "Aphys_low": 10000.0,
+            "Aphys_high": 10000.0,
+            "Aphys_est": 10000.0,
+            "Arecv_low": 9634.375,
+            "Arecv_high": 10000.0,
+            "Arecv_est": 9817.1875,
+            "Q_lower": 0.9634375,
+            "Q_upper": 1.0,
+            "Qarea_est": 0.98171875,
+            "Earea_phys": 0.0,
+            "Earea_recv": 365.625,
+            "Earea": 365.625,
+            "EPS_Q": 0.0365625
+          }
+        ],
+        "coverage_type": "GEOMETRIC_AREA_NOT_PROBABILITY"
+      },
+      "JD_received": 106.43670355573973,
+      "JR_received": 53.21835177786986,
+      "JA_received": 3319.971022050811,
+      "worst_received_scenarios": {
+        "JD": {
+          "metric": "JD",
+          "value": 106.43670355573973,
+          "G": [
+            197.5,
+            -32.5
+          ],
+          "e2_deg": -0.2,
+          "status": "BEARING",
+          "theta2_hat_deg": -178.13760827492018,
+          "diameter": 106.43670355573973,
+          "mec_radius": 53.21835177786986,
+          "area": 3319.969938243484,
+          "mec_center": [
+            150.0,
+            -31.773602193097524
+          ],
+          "mec_support": [
+            [
+              100.0,
+              -49.999763773449665
+            ],
+            [
+              200.0,
+              -13.547440612745383
+            ]
+          ],
+          "source_level": 5.0,
+          "sample_set": "Gverify",
+          "sample_origin": "verify_interior",
+          "near_limit_eta_m": null,
+          "tq3_move_from_s2_s": 190.1062399603259
+        },
+        "JR": {
+          "metric": "JR",
+          "value": 53.21835177786986,
+          "G": [
+            197.5,
+            -32.5
+          ],
+          "e2_deg": -0.2,
+          "status": "BEARING",
+          "theta2_hat_deg": -178.13760827492018,
+          "diameter": 106.43670355573973,
+          "mec_radius": 53.21835177786986,
+          "area": 3319.969938243484,
+          "mec_center": [
+            150.0,
+            -31.773602193097524
+          ],
+          "mec_support": [
+            [
+              100.0,
+              -49.999763773449665
+            ],
+            [
+              200.0,
+              -13.547440612745383
+            ]
+          ],
+          "source_level": 5.0,
+          "sample_set": "Gverify",
+          "sample_origin": "verify_interior",
+          "near_limit_eta_m": null,
+          "tq3_move_from_s2_s": 190.1062399603259
+        },
+        "JA": {
+          "metric": "JA",
+          "value": 3319.971022050811,
+          "G": [
+            170.0,
+            40.0
+          ],
+          "e2_deg": 0.6,
+          "status": "BEARING",
+          "theta2_hat_deg": 178.13718332408317,
+          "diameter": 106.4344980271616,
+          "mec_radius": 53.2172490135808,
+          "area": 3319.971022050811,
+          "mec_center": [
+            150.0,
+            31.77705861905201
+          ],
+          "mec_support": [
+            [
+              100.0,
+              50.0
+            ],
+            [
+              200.0,
+              13.55411723810402
+            ]
+          ],
+          "source_level": 10.0,
+          "sample_set": "Gext",
+          "sample_origin": "interior",
+          "near_limit_eta_m": null,
+          "tq3_move_from_s2_s": 190.1062630693138
+        }
+      },
+      "risk_level": [
+        "C095"
+      ],
+      "T2": 220.0,
+      "robust_guarantee": false,
+      "evaluation_status": "PASS",
+      "gverify": {
+        "status": "PASS",
+        "optimizer_received_count": 111,
+        "verify_received_count": 460,
+        "JD_verify": 106.43670355573973,
+        "JR_verify": 53.21835177786986,
+        "JA_verify": 3319.9702750518913,
+        "validated_JD": 106.43670355573973,
+        "validated_JR": 53.21835177786986,
+        "validated_JA": 3319.971022050811,
+        "verify_exceeded_optimizer": {
+          "JD": true,
+          "JR": true,
+          "JA": false
+        },
+        "replay": {
+          "JD": {
+            "metric": "JD",
+            "status": "PASS",
+            "checks": {
+              "value": true,
+              "status": true,
+              "G": true,
+              "e2": true,
+              "mec_center": true,
+              "mec_support": true
+            },
+            "replayed_value": 106.43670355573973,
+            "stored_value": 106.43670355573973,
+            "tolerance": 0.00018
+          },
+          "JR": {
+            "metric": "JR",
+            "status": "PASS",
+            "checks": {
+              "value": true,
+              "status": true,
+              "G": true,
+              "e2": true,
+              "mec_center": true,
+              "mec_support": true
+            },
+            "replayed_value": 53.21835177786986,
+            "stored_value": 53.21835177786986,
+            "tolerance": 0.00018
+          },
+          "JA": {
+            "metric": "JA",
+            "status": "PASS",
+            "checks": {
+              "value": true,
+              "status": true,
+              "G": true,
+              "e2": true,
+              "mec_center": true,
+              "mec_support": true
+            },
+            "replayed_value": 3319.971022050811,
+            "stored_value": 3319.971022050811,
+            "tolerance": 0.000324
+          }
+        }
+      },
+      "source_history": [
+        {
+          "source_level_m": 20.0,
+          "source_count": 40,
+          "error_step_deg": 0.05,
+          "JD_received": 106.43472302790589,
+          "JR_received": 53.217361513952945,
+          "JA_received": 3319.95773861683,
+          "relchg_D": null,
+          "relchg_R": null
+        },
+        {
+          "source_level_m": 10.0,
+          "source_count": 111,
+          "error_step_deg": 0.05,
+          "JD_received": 106.43608167479645,
+          "JR_received": 53.21804083739823,
+          "JA_received": 3319.971022050811,
+          "relchg_D": 1.2764908940531509e-05,
+          "relchg_R": 1.2764908940531509e-05
+        }
+      ],
+      "error_history": [
+        {
+          "source_level_m": 20.0,
+          "source_count": 40,
+          "error_step_deg": 0.1,
+          "error_count": 21,
+          "JD_received": 106.42629683651933,
+          "JR_received": 53.21314841825966,
+          "JA_received": 3319.906048710045,
+          "relchg_D": null,
+          "relchg_R": null
+        },
+        {
+          "source_level_m": 20.0,
+          "source_count": 40,
+          "error_step_deg": 0.05,
+          "error_count": 41,
+          "JD_received": 106.43472302790589,
+          "JR_received": 53.217361513952945,
+          "JA_received": 3319.95773861683,
+          "relchg_D": 7.916769214828989e-05,
+          "relchg_R": 7.916769214842341e-05
+        },
+        {
+          "source_level_m": 10.0,
+          "source_count": 111,
+          "error_step_deg": 0.1,
+          "error_count": 21,
+          "JD_received": 106.43608167479645,
+          "JR_received": 53.21804083739823,
+          "JA_received": 3319.971022050811,
+          "relchg_D": null,
+          "relchg_R": null
+        },
+        {
+          "source_level_m": 10.0,
+          "source_count": 111,
+          "error_step_deg": 0.05,
+          "error_count": 41,
+          "JD_received": 106.43608167479645,
+          "JR_received": 53.21804083739823,
+          "JA_received": 3319.971022050811,
+          "relchg_D": 0.0,
+          "relchg_R": 0.0
+        }
+      ],
+      "warnings": [
+        "AREA_INTEGRATION_UNRESOLVED"
+      ],
+      "wording": "在能够保证再次接收到信号的场景子集内的场景加密后收敛数值最坏值",
+      "coverage_type": "GEOMETRIC_AREA_NOT_PROBABILITY"
+    },
+    {
+      "S2": [
+        1150.0,
+        0.0
+      ],
+      "coverage": {
+        "S2": [
+          1150.0,
+          0.0
+        ],
+        "Aphys_low": 10000.0,
+        "Aphys_high": 10000.0,
+        "Aphys_est": 10000.0,
+        "Arecv_low": 4634.375,
+        "Arecv_high": 5250.0,
+        "Arecv_est": 4942.1875,
+        "Q_lower": 0.4634375,
+        "Q_upper": 0.525,
+        "Qarea_est": 0.49421875,
+        "Earea_phys": 0.0,
+        "Earea_recv": 615.625,
+        "Earea": 615.625,
+        "EPS_Q": 0.0615625,
+        "integration_status": "AREA_INTEGRATION_UNRESOLVED",
+        "alpha_099_status": "CERTIFIED_BELOW_ALPHA",
+        "alpha_095_status": "CERTIFIED_BELOW_ALPHA",
+        "cell_count": 318,
+        "refinement_history": [
+          {
+            "round": 0,
+            "nominal_step_m": 40.0,
+            "cell_count": 9,
+            "physical_uncertain": 0,
+            "receive_uncertain": 8,
+            "Aphys_low": 10000.0,
+            "Aphys_high": 10000.0,
+            "Aphys_est": 10000.0,
+            "Arecv_low": 400.0,
+            "Arecv_high": 10000.0,
+            "Arecv_est": 5200.0,
+            "Q_lower": 0.04,
+            "Q_upper": 1.0,
+            "Qarea_est": 0.52,
+            "Earea_phys": 0.0,
+            "Earea_recv": 9600.0,
+            "Earea": 9600.0,
+            "EPS_Q": 0.96
+          },
+          {
+            "round": 1,
+            "nominal_step_m": 20.0,
+            "cell_count": 33,
+            "physical_uncertain": 0,
+            "receive_uncertain": 18,
+            "Aphys_low": 10000.0,
+            "Aphys_high": 10000.0,
+            "Aphys_est": 10000.0,
+            "Arecv_low": 2000.0,
+            "Arecv_high": 8000.0,
+            "Arecv_est": 5000.0,
+            "Q_lower": 0.2,
+            "Q_upper": 0.8,
+            "Qarea_est": 0.5,
+            "Earea_phys": 0.0,
+            "Earea_recv": 6000.0,
+            "Earea": 6000.0,
+            "EPS_Q": 0.6
+          },
+          {
+            "round": 2,
+            "nominal_step_m": 10.0,
+            "cell_count": 87,
+            "physical_uncertain": 0,
+            "receive_uncertain": 25,
+            "Aphys_low": 10000.0,
+            "Aphys_high": 10000.0,
+            "Aphys_est": 10000.0,
+            "Arecv_low": 3900.0,
+            "Arecv_high": 6000.0,
+            "Arecv_est": 4950.0,
+            "Q_lower": 0.39,
+            "Q_upper": 0.6,
+            "Qarea_est": 0.495,
+            "Earea_phys": 0.0,
+            "Earea_recv": 2100.0,
+            "Earea": 2100.0,
+            "EPS_Q": 0.21
+          },
+          {
+            "round": 3,
+            "nominal_step_m": 5.0,
+            "cell_count": 162,
+            "physical_uncertain": 0,
+            "receive_uncertain": 52,
+            "Aphys_low": 10000.0,
+            "Aphys_high": 10000.0,
+            "Aphys_est": 10000.0,
+            "Arecv_low": 4400.0,
+            "Arecv_high": 5500.0,
+            "Arecv_est": 4950.0,
+            "Q_lower": 0.44,
+            "Q_upper": 0.55,
+            "Qarea_est": 0.495,
+            "Earea_phys": 0.0,
+            "Earea_recv": 1100.0,
+            "Earea": 1100.0,
+            "EPS_Q": 0.11
+          },
+          {
+            "round": 4,
+            "nominal_step_m": 2.5,
+            "cell_count": 318,
+            "physical_uncertain": 0,
+            "receive_uncertain": 117,
+            "Aphys_low": 10000.0,
+            "Aphys_high": 10000.0,
+            "Aphys_est": 10000.0,
+            "Arecv_low": 4634.375,
+            "Arecv_high": 5250.0,
+            "Arecv_est": 4942.1875,
+            "Q_lower": 0.4634375,
+            "Q_upper": 0.525,
+            "Qarea_est": 0.49421875,
+            "Earea_phys": 0.0,
+            "Earea_recv": 615.625,
+            "Earea": 615.625,
+            "EPS_Q": 0.0615625
+          }
+        ],
+        "coverage_type": "GEOMETRIC_AREA_NOT_PROBABILITY"
+      },
+      "JD_received": 106.96124640941345,
+      "JR_received": 53.480623204706724,
+      "JA_received": 3494.1859703699565,
+      "worst_received_scenarios": {
+        "JD": {
+          "metric": "JD",
+          "value": 106.96124640941345,
+          "G": [
+            152.5,
+            -47.5
+          ],
+          "e2_deg": -1.0,
+          "status": "BEARING",
+          "theta2_hat_deg": -178.27368900609375,
+          "diameter": 106.96124640941345,
+          "mec_radius": 53.480623204706724,
+          "area": 3494.185032434419,
+          "mec_center": [
+            150.0,
+            -31.021668714984045
+          ],
+          "mec_support": [
+            [
+              100.0,
+              -50.0
+            ],
+            [
+              200.0,
+              -12.04333742996809
+            ]
+          ],
+          "source_level": 5.0,
+          "sample_set": "Gverify",
+          "sample_origin": "verify_interior",
+          "near_limit_eta_m": null,
+          "tq3_move_from_s2_s": 200.09621125147393
+        },
+        "JR": {
+          "metric": "JR",
+          "value": 53.480623204706724,
+          "G": [
+            152.5,
+            -47.5
+          ],
+          "e2_deg": -1.0,
+          "status": "BEARING",
+          "theta2_hat_deg": -178.27368900609375,
+          "diameter": 106.96124640941345,
+          "mec_radius": 53.480623204706724,
+          "area": 3494.185032434419,
+          "mec_center": [
+            150.0,
+            -31.021668714984045
+          ],
+          "mec_support": [
+            [
+              100.0,
+              -50.0
+            ],
+            [
+              200.0,
+              -12.04333742996809
+            ]
+          ],
+          "source_level": 5.0,
+          "sample_set": "Gverify",
+          "sample_origin": "verify_interior",
+          "near_limit_eta_m": null,
+          "tq3_move_from_s2_s": 200.09621125147393
+        },
+        "JA": {
+          "metric": "JA",
+          "value": 3494.1859703699565,
+          "G": [
+            167.5,
+            -42.5
+          ],
+          "e2_deg": -0.75,
+          "status": "BEARING",
+          "theta2_hat_deg": -178.27310073934837,
+          "diameter": 106.95778496074102,
+          "mec_radius": 53.47889248037051,
+          "area": 3494.1859703699565,
+          "mec_center": [
+            150.0,
+            -31.02654641539844
+          ],
+          "mec_support": [
+            [
+              100.0,
+              -50.0
+            ],
+            [
+              200.0,
+              -12.053092830796878
+            ]
+          ],
+          "source_level": 5.0,
+          "sample_set": "Gverify",
+          "sample_origin": "verify_interior",
+          "near_limit_eta_m": null,
+          "tq3_move_from_s2_s": 200.09624150217982
+        }
+      },
+      "risk_level": [],
+      "T2": 230.0,
+      "robust_guarantee": false,
+      "evaluation_status": "PASS",
+      "gverify": {
+        "status": "PASS",
+        "optimizer_received_count": 56,
+        "verify_received_count": 240,
+        "JD_verify": 106.96124640941345,
+        "JR_verify": 53.480623204706724,
+        "JA_verify": 3494.1859703699565,
+        "validated_JD": 106.96124640941345,
+        "validated_JR": 53.480623204706724,
+        "validated_JA": 3494.1859703699565,
+        "verify_exceeded_optimizer": {
+          "JD": true,
+          "JR": true,
+          "JA": true
+        },
+        "replay": {
+          "JD": {
+            "metric": "JD",
+            "status": "PASS",
+            "checks": {
+              "value": true,
+              "status": true,
+              "G": true,
+              "e2": true,
+              "mec_center": true,
+              "mec_support": true
+            },
+            "replayed_value": 106.96124640941345,
+            "stored_value": 106.96124640941345,
+            "tolerance": 0.00018
+          },
+          "JR": {
+            "metric": "JR",
+            "status": "PASS",
+            "checks": {
+              "value": true,
+              "status": true,
+              "G": true,
+              "e2": true,
+              "mec_center": true,
+              "mec_support": true
+            },
+            "replayed_value": 53.480623204706724,
+            "stored_value": 53.480623204706724,
+            "tolerance": 0.00018
+          },
+          "JA": {
+            "metric": "JA",
+            "status": "PASS",
+            "checks": {
+              "value": true,
+              "status": true,
+              "G": true,
+              "e2": true,
+              "mec_center": true,
+              "mec_support": true
+            },
+            "replayed_value": 3494.1859703699565,
+            "stored_value": 3494.1859703699565,
+            "tolerance": 0.000324
+          }
+        }
+      },
+      "source_history": [
+        {
+          "source_level_m": 20.0,
+          "source_count": 25,
+          "error_step_deg": 0.05,
+          "JD_received": 106.95327865452566,
+          "JR_received": 53.47663932726283,
+          "JA_received": 3494.1389115955008,
+          "relchg_D": null,
+          "relchg_R": null
+        },
+        {
+          "source_level_m": 10.0,
+          "source_count": 56,
+          "error_step_deg": 0.05,
+          "JD_received": 106.95818154710251,
+          "JR_received": 53.479090773551256,
+          "JA_received": 3494.1672553504845,
+          "relchg_D": 4.583934118861128e-05,
+          "relchg_R": 4.583934118861128e-05
+        }
+      ],
+      "error_history": [
+        {
+          "source_level_m": 20.0,
+          "source_count": 25,
+          "error_step_deg": 0.1,
+          "error_count": 21,
+          "JD_received": 106.95327865452566,
+          "JR_received": 53.47663932726283,
+          "JA_received": 3494.1389115955008,
+          "relchg_D": null,
+          "relchg_R": null
+        },
+        {
+          "source_level_m": 20.0,
+          "source_count": 25,
+          "error_step_deg": 0.05,
+          "error_count": 41,
+          "JD_received": 106.95327865452566,
+          "JR_received": 53.47663932726283,
+          "JA_received": 3494.1389115955008,
+          "relchg_D": 0.0,
+          "relchg_R": 0.0
+        },
+        {
+          "source_level_m": 10.0,
+          "source_count": 56,
+          "error_step_deg": 0.1,
+          "error_count": 21,
+          "JD_received": 106.95327865452566,
+          "JR_received": 53.47663932726283,
+          "JA_received": 3494.1389115955008,
+          "relchg_D": null,
+          "relchg_R": null
+        },
+        {
+          "source_level_m": 10.0,
+          "source_count": 56,
+          "error_step_deg": 0.05,
+          "error_count": 41,
+          "JD_received": 106.95818154710251,
+          "JR_received": 53.479090773551256,
+          "JA_received": 3494.1672553504845,
+          "relchg_D": 4.583934118861128e-05,
+          "relchg_R": 4.583934118861128e-05
+        }
+      ],
+      "warnings": [
+        "AREA_INTEGRATION_UNRESOLVED"
+      ],
+      "wording": "在能够保证再次接收到信号的场景子集内的场景加密后收敛数值最坏值",
+      "coverage_type": "GEOMETRIC_AREA_NOT_PROBABILITY"
+    }
+  ]
+}

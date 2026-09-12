@@ -13,7 +13,7 @@
 | 问题编号 | 标题 | 描述 | 负责人 | 状态 | 截止时间 | 关联版本 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 | 待填写 |
-| Q2-I-001 | M5B--M6 尚未完成 | M5A strict 全候选自适应搜索已完成；Garea/Qarea、风险推荐、正式区域/推荐输出和整体收敛/敏感性仍待实现 | C | OPEN | 后续轮次 | Q2-robust-selection-v2.1 | eps_rec 仍 provisional；不得在完成前声明 Q2 TESTED/VERIFIED |
+| Q2-I-001 | M6 尚未完成 | M5B Garea/Qarea、风险阈值 shortlist 与 received-subset worst 已完成；正式全域结果、1440→2880、Lmin 敏感性和整体收敛仍待实现 | C | OPEN | 后续轮次 | Q2-robust-selection-v2.1 | eps_rec 与 area_q_tol 等仍为 implementation parameters；不得在完成前声明 Q2 TESTED/VERIFIED |
 
 ## P2
 

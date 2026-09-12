@@ -16,6 +16,8 @@ if SRC_DIR not in sys.path:
 
 from q1_localization import DEFAULT_TOLERANCES, EPS_MEC, point_in_convex_region, wedge_halfplanes  # noqa: E402
 from q2_selection import (  # noqa: E402
+    AreaCoverageResult,
+    AreaIntegrationCell,
     Q2Config,
     CandidateResult,
     SourceScenario,
@@ -23,10 +25,15 @@ from q2_selection import (  # noqa: E402
     build_Gext,
     build_Gverify,
     build_error_grid,
+    build_Garea,
     build_P1_bound,
     certified_strict,
     evaluate_candidate_nested,
     evaluate_candidate_resolution,
+    evaluate_risk_received_subset,
+    evaluate_risk_candidate,
+    integrate_qarea,
+    classify_risk_threshold,
     make_P2,
     merge_verified_worst,
     physical_filter,
@@ -34,6 +41,7 @@ from q2_selection import (  # noqa: E402
     receive_violation,
     search_strict_candidates,
     select_from_evaluated,
+    write_m5b_outputs,
     wrap_pi,
 )
 
@@ -589,6 +597,131 @@ class TestQ2M5AStrictCandidateSearch(unittest.TestCase):
         self.assertEqual(set(evaluated.worst_scenarios), {"JD", "JR", "JA"})
         for worst in evaluated.worst_scenarios.values():
             self.assertTrue(physical_filter(worst.G, self.S1))
+
+
+class TestQ2M5BGeometricRiskArea(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.S1 = (0.0, 0.0)
+        cls.P1 = [(100.0, -50.0), (200.0, -50.0), (200.0, 50.0), (100.0, 50.0)]
+        cls.config = Q2Config(
+            circle_sides=90, area_step_m=40.0, area_q_tol=0.02,
+            max_area_refine_rounds=4,
+        )
+
+    @staticmethod
+    def _coverage(lower, upper):
+        return AreaCoverageResult(
+            S2=(0.0, 0.0), Aphys_low=100.0, Aphys_high=100.0,
+            Aphys_est=100.0, Arecv_low=100.0 * lower,
+            Arecv_high=100.0 * upper, Arecv_est=50.0 * (lower + upper),
+            Q_lower=lower, Q_upper=upper, Qarea_est=(lower + upper) / 2.0,
+            Earea_phys=0.0, Earea_recv=100.0 * (upper - lower),
+            Earea=100.0 * (upper - lower), EPS_Q=max(1e-6, upper - lower),
+            integration_status="PASS", alpha_099_status="", alpha_095_status="",
+            cell_count=1, refinement_history=[], cells=[],
+        )
+
+    def test_qarea_strict_far_refinement_and_real_Earea(self):
+        strict = integrate_qarea(self.S1, self.S1, self.P1, self.config)
+        self.assertEqual((strict.Q_lower, strict.Q_upper, strict.Qarea_est), (1.0, 1.0, 1.0))
+        self.assertEqual(strict.alpha_099_status, "CERTIFIED_ABOVE_ALPHA")
+        far = integrate_qarea((1200.0, 0.0), self.S1, self.P1, self.config)
+        self.assertLess(far.Qarea_est, 0.1)
+        eareas = [item["Earea"] for item in far.refinement_history]
+        self.assertTrue(all(after <= before + 1e-12 for before, after in zip(eareas, eareas[1:])))
+        self.assertGreater(far.Earea, 0.0)
+        self.assertAlmostEqual(far.EPS_Q, far.Earea / far.Aphys_est)
+
+    def test_dense_deterministic_oracle_is_inside_certified_interval(self):
+        s2 = (1150.0, 0.0)
+        result = integrate_qarea(s2, self.S1, self.P1, self.config)
+        count = received = 0
+        n = 300
+        for ix in range(n):
+            x = 100.0 + (ix + 0.5) * 100.0 / n
+            for iy in range(n):
+                y = -50.0 + (iy + 0.5) * 100.0 / n
+                count += 1
+                received += receive_violation(s2, (x, y), self.S1) <= 0.0
+        oracle = received / count
+        self.assertLessEqual(result.Q_lower, oracle)
+        self.assertLessEqual(oracle, result.Q_upper)
+
+    def test_threshold_three_state_never_uses_estimate_to_upgrade(self):
+        unresolved = self._coverage(0.985, 0.995)
+        unresolved.Qarea_est = 0.991
+        self.assertEqual(classify_risk_threshold(unresolved, 0.99), "THRESHOLD_UNRESOLVED")
+        self.assertEqual(classify_risk_threshold(self._coverage(0.995, 1.0), 0.99), "CERTIFIED_ABOVE_ALPHA")
+        self.assertEqual(classify_risk_threshold(self._coverage(0.90, 0.98), 0.99), "CERTIFIED_BELOW_ALPHA")
+
+    def test_received_subset_excludes_no_signal_and_merges_Gverify(self):
+        s2 = (1150.0, 0.0)
+        gext = [
+            SourceScenario((110.0, 0.0), sample_set="Gext", origin="interior"),
+            SourceScenario((190.0, 0.0), sample_set="Gext", origin="interior"),
+        ]
+        gverify = [
+            SourceScenario((120.0, 10.0), sample_set="Gverify", origin="verify_interior"),
+            SourceScenario((180.0, 10.0), sample_set="Gverify", origin="verify_interior"),
+        ]
+        coverage = integrate_qarea(s2, self.S1, self.P1, self.config)
+        result = evaluate_risk_received_subset(
+            s2, self.S1, self.P1, gext, gverify, 0.1, self.config,
+            coverage=coverage,
+        )
+        self.assertFalse(result.robust_guarantee)
+        self.assertEqual(result.gverify["optimizer_received_count"], 1)
+        self.assertEqual(result.gverify["verify_received_count"], 1)
+        self.assertTrue(any(result.gverify["verify_exceeded_optimizer"].values()))
+        for worst in result.worst_received_scenarios.values():
+            self.assertLessEqual(receive_violation(s2, worst.G, self.S1), 0.0)
+            self.assertNotEqual(worst.status, "NO_SIGNAL")
+
+    def test_received_subset_nested_convergence_and_independent_verify(self):
+        result = evaluate_risk_candidate(
+            (1150.0, 0.0), self.S1, self.P1, self.config
+        )
+        self.assertEqual(result.evaluation_status, "PASS")
+        self.assertGreaterEqual(len(result.source_history), 2)
+        self.assertGreaterEqual(len(result.error_history), 4)
+        self.assertLessEqual(result.source_history[-1]["relchg_D"], 1e-3)
+        self.assertLessEqual(result.source_history[-1]["relchg_R"], 1e-3)
+        self.assertEqual(result.gverify["status"], "PASS")
+        self.assertTrue(all(
+            item["status"] == "PASS" for item in result.gverify["replay"].values()
+        ))
+
+    def test_Garea_is_area_weighted_independent_and_outputs_are_separate(self):
+        cells = build_Garea(self.P1, self.S1, self.S1, self.config)
+        self.assertTrue(all(isinstance(cell, AreaIntegrationCell) for cell in cells))
+        self.assertAlmostEqual(sum(cell.area for cell in cells), 10000.0)
+        baseline = integrate_qarea(self.S1, self.S1, self.P1, self.config)
+        artificial_boundary_points = [
+            SourceScenario((100.0, -50.0 + index / 10.0), origin="boundary")
+            for index in range(1001)
+        ]
+        self.assertGreater(len(artificial_boundary_points), len(cells))
+        repeated = integrate_qarea(self.S1, self.S1, self.P1, self.config)
+        self.assertEqual(baseline.to_dict(), repeated.to_dict())
+        risk = evaluate_risk_received_subset(
+            self.S1, self.S1, self.P1,
+            [SourceScenario((150.0, 0.0), sample_set="Gext")],
+            [SourceScenario((175.0, 0.0), sample_set="Gverify")],
+            0.1, self.config, coverage=baseline,
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            write_m5b_outputs([risk], temporary)
+            expected = {
+                "area_coverage_candidates.csv", "risk099_candidates.csv",
+                "risk095_candidates.csv", "Frisk099.geojson", "Frisk095.geojson",
+                "area_integration_diagnostics.json", "risk_worst_diagnostics.json",
+            }
+            self.assertEqual({path.name for path in Path(temporary).iterdir()}, expected)
+            geojson = json.loads((Path(temporary) / "Frisk099.geojson").read_text(encoding="utf-8"))
+            self.assertTrue(geojson["features"])
+            self.assertTrue(all(not feature["properties"]["robust_guarantee"] for feature in geojson["features"]))
+            self.assertEqual(geojson["coverage_type"], "GEOMETRIC_AREA_NOT_PROBABILITY")
 
 
 if __name__ == "__main__":

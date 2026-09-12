@@ -1,0 +1,93 @@
+{
+  "type": "FeatureCollection",
+  "name": "Frisk095 DEVELOPMENT point-certified shortlist",
+  "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+  "coverage_type": "GEOMETRIC_AREA_NOT_PROBABILITY",
+  "robust_guarantee": false,
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.0,
+          0.0
+        ]
+      },
+      "properties": {
+        "x": 0.0,
+        "y": 0.0,
+        "T2": 0.0,
+        "Aphys_low": 10000.0,
+        "Aphys_high": 10000.0,
+        "Aphys_est": 10000.0,
+        "Arecv_low": 10000.0,
+        "Arecv_high": 10000.0,
+        "Arecv_est": 10000.0,
+        "Q_lower": 1.0,
+        "Q_upper": 1.0,
+        "Qarea_est": 1.0,
+        "Earea_phys": 0.0,
+        "Earea_recv": 0.0,
+        "Earea": 0.0,
+        "EPS_Q": 1e-06,
+        "integration_status": "PASS",
+        "alpha_099_status": "CERTIFIED_ABOVE_ALPHA",
+        "alpha_095_status": "CERTIFIED_ABOVE_ALPHA",
+        "JD_received": 104.03095843636804,
+        "JR_received": 52.01547921818402,
+        "JA_received": 551.9161009367692,
+        "risk_level": "C099;C095",
+        "risk_evaluation_status": "PASS",
+        "robust_guarantee": false,
+        "coverage_type": "GEOMETRIC_AREA_NOT_PROBABILITY",
+        "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+        "threshold": 0.95,
+        "threshold_status": "CERTIFIED_ABOVE_ALPHA",
+        "representation": "point_certified"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1100.0,
+          0.0
+        ]
+      },
+      "properties": {
+        "x": 1100.0,
+        "y": 0.0,
+        "T2": 220.0,
+        "Aphys_low": 10000.0,
+        "Aphys_high": 10000.0,
+        "Aphys_est": 10000.0,
+        "Arecv_low": 9634.375,
+        "Arecv_high": 10000.0,
+        "Arecv_est": 9817.1875,
+        "Q_lower": 0.9634375,
+        "Q_upper": 1.0,
+        "Qarea_est": 0.98171875,
+        "Earea_phys": 0.0,
+        "Earea_recv": 365.625,
+        "Earea": 365.625,
+        "EPS_Q": 0.0365625,
+        "integration_status": "AREA_INTEGRATION_UNRESOLVED",
+        "alpha_099_status": "THRESHOLD_UNRESOLVED",
+        "alpha_095_status": "CERTIFIED_ABOVE_ALPHA",
+        "JD_received": 106.43670355573973,
+        "JR_received": 53.21835177786986,
+        "JA_received": 3319.971022050811,
+        "risk_level": "C095",
+        "risk_evaluation_status": "PASS",
+        "robust_guarantee": false,
+        "coverage_type": "GEOMETRIC_AREA_NOT_PROBABILITY",
+        "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+        "threshold": 0.95,
+        "threshold_status": "CERTIFIED_ABOVE_ALPHA",
+        "representation": "point_certified"
+      }
+    }
+  ]
+}

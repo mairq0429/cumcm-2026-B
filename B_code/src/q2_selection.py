@@ -1,6 +1,6 @@
 """Q2 robust second-station selection, model Q2-robust-selection-v2.1.
 
-This implementation covers milestones M1--M5A.  All convex
+This implementation covers milestones M1--M5B.  All convex
 clipping, polygon cleanup, region classification, diameter, MEC and geometry
 tolerances are imported from the verified Q1 implementation.
 """
@@ -56,6 +56,10 @@ class Q2Config:
     certificate_max_depth: int = 24
     certificate_max_cells: int = 200_000
     max_error_refine_rounds: int = 4
+    area_step_m: float = 40.0
+    area_q_tol: float = 1.0e-2
+    max_area_refine_rounds: int = 4
+    area_cell_budget: int = 500_000
     tolerances: NumericalTolerances = field(default=DEFAULT_TOLERANCES)
 
     def __post_init__(self) -> None:
@@ -69,6 +73,10 @@ class Q2Config:
             raise ValueError("certificate limits must be nonnegative")
         if self.max_error_refine_rounds < 1:
             raise ValueError("max_error_refine_rounds must be positive")
+        if self.area_step_m <= 0 or self.area_q_tol <= 0:
+            raise ValueError("area_step_m and area_q_tol must be positive")
+        if self.max_area_refine_rounds < 0 or self.area_cell_budget < 1:
+            raise ValueError("area refinement limits must be nonnegative/positive")
 
 
 @dataclass(frozen=True)
@@ -200,6 +208,79 @@ class CandidateCell:
             "center_in_move_domain": self.center_in_move_domain,
             "omega_boundary_flag": self.omega_boundary_flag,
         }
+
+
+@dataclass(frozen=True)
+class AreaIntegrationCell:
+    cell_id: str
+    bbox: tuple[float, float, float, float]
+    level: int
+    area: float
+    physical_status: str
+    receive_status: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
+class AreaCoverageResult:
+    S2: Point
+    Aphys_low: float
+    Aphys_high: float
+    Aphys_est: float
+    Arecv_low: float
+    Arecv_high: float
+    Arecv_est: float
+    Q_lower: float
+    Q_upper: float
+    Qarea_est: float
+    Earea_phys: float
+    Earea_recv: float
+    Earea: float
+    EPS_Q: float
+    integration_status: str
+    alpha_099_status: str
+    alpha_095_status: str
+    cell_count: int
+    refinement_history: list[dict]
+    cells: list[AreaIntegrationCell] = field(repr=False)
+
+    def to_dict(self, *, include_cells: bool = False) -> dict:
+        result = asdict(self)
+        if not include_cells:
+            result.pop("cells", None)
+        result["S2"] = list(self.S2)
+        result["coverage_type"] = "GEOMETRIC_AREA_NOT_PROBABILITY"
+        return result
+
+
+@dataclass
+class RiskCandidateResult:
+    S2: Point
+    coverage: AreaCoverageResult
+    JD_received: Optional[float]
+    JR_received: Optional[float]
+    JA_received: Optional[float]
+    worst_received_scenarios: dict[str, WorstScenario]
+    risk_level: tuple[str, ...]
+    T2: float
+    robust_guarantee: bool = False
+    evaluation_status: str = "DEVELOPMENT"
+    gverify: Optional[dict] = None
+    source_history: list[dict] = field(default_factory=list)
+    error_history: list[dict] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    wording: str = (
+        "在能够保证再次接收到信号的场景子集内的场景加密后收敛数值最坏值"
+    )
+
+    def to_dict(self) -> dict:
+        result = asdict(self)
+        result["S2"] = list(self.S2)
+        result["coverage"] = self.coverage.to_dict()
+        result["coverage_type"] = "GEOMETRIC_AREA_NOT_PROBABILITY"
+        return result
 
 
 def _point(value: Sequence[float], name: str = "point") -> Point:
@@ -969,6 +1050,295 @@ def merge_verified_worst(
     }
 
 
+def _risk_subset_certificate() -> dict:
+    return {
+        "status": "RISK_RECEIVED_SUBSET",
+        "certified": False,
+        "strict_receive": False,
+        "eps_rec_m": None,
+        "eps_rec_source": "NOT_USED_BY_QAREA_OR_RISK_SUBSET",
+    }
+
+
+def _received_sources(
+    sources: Iterable[SourceScenario], S2: Point, S1: Point
+) -> list[SourceScenario]:
+    return [
+        source for source in sources
+        if physical_filter(source.G, S1) and receive_violation(S2, source.G, S1) <= 0.0
+    ]
+
+
+def evaluate_risk_received_subset(
+    S2: Sequence[float], S1: Sequence[float],
+    P1_bound: Sequence[Point] | Mapping[str, object],
+    Gext: Iterable[SourceScenario], Gverify: Iterable[SourceScenario],
+    error_step_deg: float, config: Optional[Q2Config] = None,
+    *, coverage: Optional[AreaCoverageResult] = None,
+) -> RiskCandidateResult:
+    """Evaluate and merge optimizer/verify worst values on received sources only."""
+
+    cfg = config or Q2Config()
+    s1, s2 = _point(S1, "S1"), _point(S2, "S2")
+    optimizer_sources = _received_sources(Gext, s2, s1)
+    verify_sources = _received_sources(Gverify, s2, s1)
+    certificate = _risk_subset_certificate()
+    optimizer = evaluate_candidate_resolution(
+        s2, s1, P1_bound, optimizer_sources, error_step_deg, cfg,
+        certificate=certificate,
+    )
+    verify = evaluate_candidate_resolution(
+        s2, s1, P1_bound, verify_sources, error_step_deg, cfg,
+        certificate=certificate,
+    )
+    merge = merge_verified_worst(optimizer, verify, convergence_passed=False)
+    optimizer.robust_guarantee = False
+    optimizer.official20 = optimizer.operational17 = None
+    area = coverage or integrate_qarea(s2, s1, P1_bound, cfg)
+    risk_levels = tuple(
+        name for name, state in (
+            ("C099", area.alpha_099_status), ("C095", area.alpha_095_status)
+        ) if state == "CERTIFIED_ABOVE_ALPHA"
+    )
+    replay = {
+        metric: replay_worst_scenario(worst, P1_bound, s2, cfg)
+        for metric, worst in optimizer.worst_scenarios.items()
+    }
+    return RiskCandidateResult(
+        S2=s2, coverage=area, JD_received=optimizer.JD,
+        JR_received=optimizer.JR, JA_received=optimizer.JA,
+        worst_received_scenarios=optimizer.worst_scenarios,
+        risk_level=risk_levels, T2=_distance(s1, s2) / SPEED_MPS,
+        robust_guarantee=False,
+        evaluation_status=("PASS" if optimizer_sources and all(
+            item["status"] == "PASS" for item in replay.values()
+        ) else "UNRESOLVED"),
+        gverify={
+            "status": "PASS" if verify_sources else "NO_RECEIVED_VERIFY_SCENARIOS",
+            "optimizer_received_count": len(optimizer_sources),
+            "verify_received_count": len(verify_sources),
+            "JD_verify": verify.JD, "JR_verify": verify.JR, "JA_verify": verify.JA,
+            "validated_JD": optimizer.JD, "validated_JR": optimizer.JR,
+            "validated_JA": optimizer.JA,
+            "verify_exceeded_optimizer": merge["verify_exceeded_optimizer"],
+            "replay": replay,
+        },
+        warnings=([] if area.integration_status == "PASS" else ["AREA_INTEGRATION_UNRESOLVED"]),
+    )
+
+
+def evaluate_risk_candidate(
+    S2: Sequence[float], S1: Sequence[float],
+    P1_bound: Sequence[Point] | Mapping[str, object],
+    config: Optional[Q2Config] = None,
+    *, coverage: Optional[AreaCoverageResult] = None,
+    source_levels_m: Sequence[float] = (20.0, 10.0, 5.0),
+) -> RiskCandidateResult:
+    """Run nested source/error refinement for the guaranteed-received subset."""
+
+    cfg = config or Q2Config()
+    s1, s2 = _point(S1, "S1"), _point(S2, "S2")
+    certificate = _risk_subset_certificate()
+    previous_sources: list[SourceScenario] = []
+    previous_source_result: Optional[CandidateResult] = None
+    final_sources: list[SourceScenario] = []
+    final_result: Optional[CandidateResult] = None
+    final_level = final_error_step = None
+    source_history: list[dict] = []
+    error_history: list[dict] = []
+    warnings: list[str] = []
+    source_pass = error_pass = False
+    for source_level in source_levels_m:
+        all_sources = build_Gext(P1_bound, s1, source_level, previous_sources)
+        previous_sources = all_sources
+        received = _received_sources(all_sources, s2, s1)
+        previous_error: Optional[CandidateResult] = None
+        error_pass = False
+        for error_round in range(cfg.max_error_refine_rounds + 1):
+            step = cfg.error_step_deg / (2 ** error_round)
+            current = evaluate_candidate_resolution(
+                s2, s1, P1_bound, received, step, cfg, certificate=certificate
+            )
+            rel_d = rel_r = None
+            if previous_error is not None and None not in (
+                previous_error.JD, current.JD, previous_error.JR, current.JR
+            ):
+                rel_d = relchg(previous_error.JD, current.JD)
+                rel_r = relchg(previous_error.JR, current.JR)
+                error_pass = rel_d <= 1.0e-3 and rel_r <= 1.0e-3
+            error_history.append({
+                "source_level_m": source_level, "source_count": len(received),
+                "error_step_deg": step, "error_count": current.error_count,
+                "JD_received": current.JD, "JR_received": current.JR,
+                "JA_received": current.JA, "relchg_D": rel_d, "relchg_R": rel_r,
+            })
+            final_result, final_sources = current, received
+            final_level, final_error_step = float(source_level), step
+            if error_pass:
+                break
+            previous_error = current
+        if not error_pass:
+            warnings.append("RISK_ERROR_CONVERGENCE_UNRESOLVED")
+            break
+        rel_d = rel_r = None
+        if previous_source_result is not None and None not in (
+            previous_source_result.JD, final_result.JD,
+            previous_source_result.JR, final_result.JR,
+        ):
+            rel_d = relchg(previous_source_result.JD, final_result.JD)
+            rel_r = relchg(previous_source_result.JR, final_result.JR)
+            source_pass = rel_d <= 1.0e-3 and rel_r <= 1.0e-3
+        source_history.append({
+            "source_level_m": source_level, "source_count": len(received),
+            "error_step_deg": final_error_step, "JD_received": final_result.JD,
+            "JR_received": final_result.JR, "JA_received": final_result.JA,
+            "relchg_D": rel_d, "relchg_R": rel_r,
+        })
+        if source_pass:
+            break
+        previous_source_result = final_result
+
+    area = coverage or integrate_qarea(s2, s1, P1_bound, cfg)
+    if final_result is None or final_level is None or final_error_step is None:
+        return RiskCandidateResult(
+            S2=s2, coverage=area, JD_received=None, JR_received=None,
+            JA_received=None, worst_received_scenarios={}, risk_level=(),
+            T2=_distance(s1, s2) / SPEED_MPS, evaluation_status="UNRESOLVED",
+            warnings=sorted(set(warnings + ["NO_RECEIVED_SOURCE_SCENARIOS"])),
+        )
+    verify_all = build_Gverify(P1_bound, s1, final_level, final_sources)
+    result = evaluate_risk_received_subset(
+        s2, s1, P1_bound, final_sources, verify_all,
+        final_error_step, cfg, coverage=area,
+    )
+    result.source_history = source_history
+    result.error_history = error_history
+    result.warnings = sorted(set(
+        result.warnings + warnings
+        + ([] if source_pass else ["RISK_SOURCE_CONVERGENCE_UNRESOLVED"])
+    ))
+    if not source_pass or not error_pass:
+        result.evaluation_status = "UNRESOLVED"
+    return result
+
+
+def _risk_record(result: RiskCandidateResult) -> dict:
+    coverage = result.coverage
+    return {
+        "x": result.S2[0], "y": result.S2[1], "T2": result.T2,
+        "Aphys_low": coverage.Aphys_low, "Aphys_high": coverage.Aphys_high,
+        "Aphys_est": coverage.Aphys_est, "Arecv_low": coverage.Arecv_low,
+        "Arecv_high": coverage.Arecv_high, "Arecv_est": coverage.Arecv_est,
+        "Q_lower": coverage.Q_lower, "Q_upper": coverage.Q_upper,
+        "Qarea_est": coverage.Qarea_est, "Earea_phys": coverage.Earea_phys,
+        "Earea_recv": coverage.Earea_recv, "Earea": coverage.Earea,
+        "EPS_Q": coverage.EPS_Q, "integration_status": coverage.integration_status,
+        "alpha_099_status": coverage.alpha_099_status,
+        "alpha_095_status": coverage.alpha_095_status,
+        "JD_received": result.JD_received, "JR_received": result.JR_received,
+        "JA_received": result.JA_received, "risk_level": ";".join(result.risk_level),
+        "risk_evaluation_status": result.evaluation_status,
+        "robust_guarantee": False,
+        "coverage_type": "GEOMETRIC_AREA_NOT_PROBABILITY",
+        "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+    }
+
+
+def write_m5b_outputs(
+    results: Sequence[RiskCandidateResult], output_dir: str | Path,
+) -> None:
+    """Write development-only M5B tabular, GeoJSON and diagnostic artifacts."""
+
+    directory = Path(output_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+    records = [_risk_record(result) for result in results]
+    fieldnames = list(records[0]) if records else list(_risk_record(RiskCandidateResult(
+        S2=(0.0, 0.0), coverage=AreaCoverageResult(
+            S2=(0.0, 0.0), Aphys_low=0, Aphys_high=0, Aphys_est=0,
+            Arecv_low=0, Arecv_high=0, Arecv_est=0, Q_lower=0, Q_upper=1,
+            Qarea_est=0, Earea_phys=0, Earea_recv=0, Earea=0, EPS_Q=1,
+            integration_status="AREA_INTEGRATION_UNRESOLVED",
+            alpha_099_status="THRESHOLD_UNRESOLVED",
+            alpha_095_status="THRESHOLD_UNRESOLVED", cell_count=0,
+            refinement_history=[], cells=[],
+        ), JD_received=None, JR_received=None, JA_received=None,
+        worst_received_scenarios={}, risk_level=(), T2=0,
+    )))
+    for filename, subset in (
+        ("area_coverage_candidates.csv", records),
+        ("risk099_candidates.csv", [
+            record for record in records if record["alpha_099_status"] == "CERTIFIED_ABOVE_ALPHA"
+        ]),
+        ("risk095_candidates.csv", [
+            record for record in records if record["alpha_095_status"] == "CERTIFIED_ABOVE_ALPHA"
+        ]),
+    ):
+        with (directory / filename).open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(subset)
+
+    for alpha, filename in ((0.99, "Frisk099.geojson"), (0.95, "Frisk095.geojson")):
+        features = []
+        for result in results:
+            status = classify_risk_threshold(result.coverage, alpha)
+            if status != "CERTIFIED_ABOVE_ALPHA":
+                continue
+            features.append({
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": list(result.S2)},
+                "properties": {
+                    **_risk_record(result), "threshold": alpha,
+                    "threshold_status": status, "representation": "point_certified",
+                    "robust_guarantee": False,
+                    "coverage_type": "GEOMETRIC_AREA_NOT_PROBABILITY",
+                },
+            })
+        payload = {
+            "type": "FeatureCollection",
+            "name": f"Frisk{int(alpha * 100):03d} DEVELOPMENT point-certified shortlist",
+            "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+            "coverage_type": "GEOMETRIC_AREA_NOT_PROBABILITY",
+            "robust_guarantee": False,
+            "features": features,
+        }
+        (directory / filename).write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    coverage_diagnostics = {
+        "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+        "coverage_type": "GEOMETRIC_AREA_NOT_PROBABILITY",
+        "candidates": [result.coverage.to_dict() for result in results],
+    }
+    worst_diagnostics = {
+        "artifact_status": "DEVELOPMENT / NOT_FINAL_Q2_RESULT",
+        "wording": "在能够保证再次接收到信号的场景子集内的场景加密后收敛数值最坏值",
+        "robust_guarantee": False,
+        "candidates": [result.to_dict() for result in results],
+    }
+    (directory / "area_integration_diagnostics.json").write_text(
+        json.dumps(coverage_diagnostics, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    (directory / "risk_worst_diagnostics.json").write_text(
+        json.dumps(worst_diagnostics, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def evaluate_risk_candidates(
+    candidate_points: Iterable[Sequence[float]], S1: Sequence[float],
+    P1_bound: Sequence[Point] | Mapping[str, object],
+    config: Optional[Q2Config] = None, *, output_dir: Optional[str | Path] = None,
+) -> list[RiskCandidateResult]:
+    """Evaluate a deterministic development shortlist; this is not global M6 search."""
+
+    cfg = config or Q2Config()
+    points = sorted({_point(point, "S2") for point in candidate_points})
+    results = [evaluate_risk_candidate(point, S1, P1_bound, cfg) for point in points]
+    if output_dir is not None:
+        write_m5b_outputs(results, output_dir)
+    return results
+
+
 def _monotone(previous: CandidateResult, current: CandidateResult) -> dict[str, bool]:
     results = {}
     for metric in ("JD", "JR", "JA"):
@@ -1271,6 +1641,213 @@ def _cell_intersects_omega(
         _segments_intersect(a, b, c, d, eps)
         for a, b in omega_edges for c, d in cell_edges
     )
+
+
+def _box_distance_bounds(bbox: Sequence[float], point: Point) -> tuple[float, float]:
+    dx = max(bbox[0] - point[0], 0.0, point[0] - bbox[2])
+    dy = max(bbox[1] - point[1], 0.0, point[1] - bbox[3])
+    minimum = math.hypot(dx, dy)
+    maximum = max(
+        _distance(point, corner) for corner in (
+            (bbox[0], bbox[1]), (bbox[2], bbox[1]),
+            (bbox[2], bbox[3]), (bbox[0], bbox[3]),
+        )
+    )
+    return minimum, maximum
+
+
+def _physical_cell_status(
+    bbox: Sequence[float], polygon: Sequence[Point], region_type: str,
+    S1: Point, tolerances: NumericalTolerances,
+) -> str:
+    corners = (
+        (bbox[0], bbox[1]), (bbox[2], bbox[1]),
+        (bbox[2], bbox[3]), (bbox[0], bbox[3]),
+    )
+    polygon_inside = all(
+        point_in_convex_region(corner, polygon, region_type, tolerances)
+        for corner in corners
+    )
+    polygon_outside = not _cell_intersects_omega(bbox, polygon, region_type, tolerances)
+    if polygon_outside:
+        return "OUTSIDE"
+
+    target_min, target_max = _box_distance_bounds(bbox, (0.0, 0.0))
+    receive_min, receive_max = _box_distance_bounds(bbox, S1)
+    if target_min > SOURCE_RADIUS_M or receive_min > FIRST_RECEIVE_MAX_M or receive_max <= NEAR_RADIUS_M:
+        return "OUTSIDE"
+    all_constraints_inside = (
+        polygon_inside
+        and target_max <= SOURCE_RADIUS_M
+        and receive_max <= FIRST_RECEIVE_MAX_M
+        and receive_min > NEAR_RADIUS_M
+    )
+    return "INSIDE" if all_constraints_inside else "UNCERTAIN"
+
+
+def _receive_cell_status(bbox: Sequence[float], S1: Point, S2: Point) -> str:
+    center = ((bbox[0] + bbox[2]) / 2.0, (bbox[1] + bbox[3]) / 2.0)
+    radius = max(
+        _distance(center, corner) for corner in (
+            (bbox[0], bbox[1]), (bbox[2], bbox[1]),
+            (bbox[2], bbox[3]), (bbox[0], bbox[3]),
+        )
+    )
+    value = receive_violation(S2, center, S1)
+    upper, lower = value + 2.0 * radius, value - 2.0 * radius
+    if upper <= 0.0:
+        return "RECEIVED"
+    if lower > 0.0:
+        return "NOT_RECEIVED"
+    return "UNCERTAIN"
+
+
+def _make_area_cell(
+    bbox: tuple[float, float, float, float], level: int, index: str,
+    polygon: Sequence[Point], region_type: str, S1: Point, S2: Point,
+    tolerances: NumericalTolerances,
+) -> AreaIntegrationCell:
+    return AreaIntegrationCell(
+        cell_id=f"A{level}_{index}", bbox=bbox, level=level,
+        area=max(0.0, bbox[2] - bbox[0]) * max(0.0, bbox[3] - bbox[1]),
+        physical_status=_physical_cell_status(bbox, polygon, region_type, S1, tolerances),
+        receive_status=_receive_cell_status(bbox, S1, S2),
+    )
+
+
+def build_Garea(
+    P1_bound: Sequence[Point] | Mapping[str, object], S1: Sequence[float],
+    S2: Sequence[float], config: Optional[Q2Config] = None,
+) -> list[AreaIntegrationCell]:
+    """Build the independent, area-weighted initial integration cells."""
+
+    cfg = config or Q2Config()
+    polygon, region_type = _p1_polygon(P1_bound)
+    s1, s2 = _point(S1, "S1"), _point(S2, "S2")
+    xs, ys = [point[0] for point in polygon], [point[1] for point in polygon]
+    lo_x, hi_x, lo_y, hi_y = min(xs), max(xs), min(ys), max(ys)
+    cells = []
+    row = 0
+    y = lo_y
+    while y < hi_y - cfg.tolerances.eps_geo:
+        next_y = min(y + cfg.area_step_m, hi_y)
+        column = 0
+        x = lo_x
+        while x < hi_x - cfg.tolerances.eps_geo:
+            next_x = min(x + cfg.area_step_m, hi_x)
+            cells.append(_make_area_cell(
+                (x, y, next_x, next_y), 0, f"{column}_{row}",
+                polygon, region_type, s1, s2, cfg.tolerances,
+            ))
+            x, column = next_x, column + 1
+        y, row = next_y, row + 1
+    return cells
+
+
+def _area_bounds(cells: Sequence[AreaIntegrationCell]) -> dict:
+    phys_low = phys_high = recv_low = recv_high = 0.0
+    for cell in cells:
+        if cell.physical_status == "OUTSIDE":
+            continue
+        if cell.physical_status == "INSIDE":
+            phys_low += cell.area
+        phys_high += cell.area
+        if cell.receive_status == "NOT_RECEIVED":
+            continue
+        if cell.physical_status == "INSIDE" and cell.receive_status == "RECEIVED":
+            recv_low += cell.area
+        recv_high += cell.area
+    phys_est = (phys_low + phys_high) / 2.0
+    recv_est = (recv_low + recv_high) / 2.0
+    tiny = 1.0e-15
+    q_lower = recv_low / max(phys_high, tiny)
+    q_upper = 1.0 if phys_low <= tiny else min(1.0, recv_high / phys_low)
+    q_est = recv_est / max(phys_est, tiny)
+    e_phys, e_recv = phys_high - phys_low, recv_high - recv_low
+    earea = e_phys + e_recv
+    return {
+        "Aphys_low": phys_low, "Aphys_high": phys_high, "Aphys_est": phys_est,
+        "Arecv_low": recv_low, "Arecv_high": recv_high, "Arecv_est": recv_est,
+        "Q_lower": q_lower, "Q_upper": q_upper, "Qarea_est": min(1.0, q_est),
+        "Earea_phys": e_phys, "Earea_recv": e_recv, "Earea": earea,
+        "EPS_Q": max(1.0e-6, earea / max(phys_est, tiny)),
+    }
+
+
+def classify_risk_threshold(coverage: AreaCoverageResult | Mapping[str, float], alpha: float) -> str:
+    lower = coverage.Q_lower if isinstance(coverage, AreaCoverageResult) else float(coverage["Q_lower"])
+    upper = coverage.Q_upper if isinstance(coverage, AreaCoverageResult) else float(coverage["Q_upper"])
+    if lower >= alpha:
+        return "CERTIFIED_ABOVE_ALPHA"
+    if upper < alpha:
+        return "CERTIFIED_BELOW_ALPHA"
+    return "THRESHOLD_UNRESOLVED"
+
+
+def integrate_qarea(
+    S2: Sequence[float], S1: Sequence[float],
+    P1_bound: Sequence[Point] | Mapping[str, object],
+    config: Optional[Q2Config] = None,
+) -> AreaCoverageResult:
+    """Certify geometric Qarea bounds by deterministic adaptive cell integration."""
+
+    cfg = config or Q2Config()
+    s1, s2 = _point(S1, "S1"), _point(S2, "S2")
+    polygon, region_type = _p1_polygon(P1_bound)
+    cells = build_Garea(P1_bound, s1, s2, cfg)
+    history = []
+    status = "AREA_INTEGRATION_UNRESOLVED"
+    for round_index in range(cfg.max_area_refine_rounds + 1):
+        bounds = _area_bounds(cells)
+        history.append({
+            "round": round_index,
+            "nominal_step_m": cfg.area_step_m / (2 ** round_index),
+            "cell_count": len(cells),
+            "physical_uncertain": sum(cell.physical_status == "UNCERTAIN" for cell in cells),
+            "receive_uncertain": sum(
+                cell.physical_status != "OUTSIDE" and cell.receive_status == "UNCERTAIN"
+                for cell in cells
+            ),
+            **bounds,
+        })
+        if bounds["Aphys_low"] > 1.0e-15 and bounds["EPS_Q"] <= cfg.area_q_tol:
+            status = "PASS"
+            break
+        if round_index == cfg.max_area_refine_rounds:
+            break
+        refine = [
+            cell for cell in cells
+            if cell.physical_status == "UNCERTAIN"
+            or (cell.physical_status == "INSIDE" and cell.receive_status == "UNCERTAIN")
+        ]
+        if not refine:
+            break
+        if len(cells) + 3 * len(refine) > cfg.area_cell_budget:
+            history[-1]["cell_budget_exhausted"] = True
+            break
+        refine_ids = {cell.cell_id for cell in refine}
+        next_cells = [cell for cell in cells if cell.cell_id not in refine_ids]
+        for cell in refine:
+            x0, y0, x1, y1 = cell.bbox
+            xm, ym = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+            for child_index, bbox in enumerate((
+                (x0, y0, xm, ym), (xm, y0, x1, ym),
+                (x0, ym, xm, y1), (xm, ym, x1, y1),
+            )):
+                next_cells.append(_make_area_cell(
+                    bbox, cell.level + 1, f"{cell.cell_id}_{child_index}",
+                    polygon, region_type, s1, s2, cfg.tolerances,
+                ))
+        cells = next_cells
+    final = _area_bounds(cells)
+    provisional = AreaCoverageResult(
+        S2=s2, integration_status=status, cell_count=len(cells),
+        refinement_history=history, cells=cells,
+        alpha_099_status="", alpha_095_status="", **final,
+    )
+    provisional.alpha_099_status = classify_risk_threshold(provisional, 0.99)
+    provisional.alpha_095_status = classify_risk_threshold(provisional, 0.95)
+    return provisional
 
 
 def _candidate_cells(
@@ -1744,18 +2321,18 @@ def validate_solution(candidate: CandidateResult | Mapping[str, object], config:
 
 
 def solve_q2(S1: Sequence[float], theta1_hat_deg: float, config: Optional[Q2Config] = None) -> dict:
-    """Build the formal Q2 domain; M5A search remains an explicit dev call."""
+    """Build the formal Q2 domain; M5A/M5B remain explicit dev calls."""
 
     cfg = config or Q2Config()
     p1 = build_P1_bound(S1, theta1_hat_deg, cfg)
     return Q2Result(
-        status="M1_M5A_COMPONENTS_IMPLEMENTED",
+        status="M1_M5B_COMPONENTS_IMPLEMENTED",
         model_version="Q2-robust-selection-v2.1",
         P1=p1,
         selected_strict=None,
         diagnostics={
-            "milestones_complete": ["M1", "M2", "M3", "M4", "M5A"],
-            "pending": ["M5B", "M6"],
+            "milestones_complete": ["M1", "M2", "M3", "M4", "M5A", "M5B"],
+            "pending": ["M6"],
             "geometry_dependency": "Q1-localization-v1 VERIFIED",
             "continuous_strict_certificate": "triangle-cell 2-Lipschitz branch-and-bound",
             "eps_rec_m": _certificate_epsilon(cfg)[0],
@@ -1767,10 +2344,14 @@ def solve_q2(S1: Sequence[float], theta1_hat_deg: float, config: Optional[Q2Conf
 
 __all__ = [
     "Q2Config", "SourceScenario", "CandidateResult", "WorstScenario", "Q2Result", "CandidateCell",
+    "AreaIntegrationCell", "AreaCoverageResult", "RiskCandidateResult",
     "bearing", "wrap_pi", "build_P1_bound", "physical_filter", "receive_floor",
     "receive_violation", "certified_strict", "make_P2", "fim_order_score",
     "build_Gext", "build_Gverify", "build_error_grid", "relchg",
     "evaluate_candidate_resolution", "evaluate_candidate", "evaluate_candidate_nested",
     "merge_verified_worst", "replay_worst_scenario", "pareto_front", "select_best",
     "select_from_evaluated", "search_strict_candidates", "validate_solution", "solve_q2",
+    "build_Garea", "integrate_qarea", "classify_risk_threshold",
+    "evaluate_risk_received_subset", "evaluate_risk_candidate", "evaluate_risk_candidates",
+    "write_m5b_outputs",
 ]
